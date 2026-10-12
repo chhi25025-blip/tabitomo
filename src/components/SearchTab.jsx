@@ -47,6 +47,22 @@ export default function SearchTab({
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [addedToast, setAddedToast] = useState(null);
 
+  // 使い方ガイドポップアップの開閉ステート（初回アクセス時は表示、閉じた後はセッション保持）
+  const [showGuideModal, setShowGuideModal] = useState(() => {
+    try {
+      return sessionStorage.getItem('tabitomo_guide_dismissed') !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleCloseGuideModal = () => {
+    setShowGuideModal(false);
+    try {
+      sessionStorage.setItem('tabitomo_guide_dismissed', 'true');
+    } catch {}
+  };
+
   // 初回マウント時に古いキャッシュ（箱根湯本など）を確実にクリーンアップ
   useEffect(() => {
     try {
@@ -320,48 +336,79 @@ export default function SearchTab({
 
   return (
     <div className="search-tab-page">
-      {/* 親しみやすいウェルカムガイドバナー */}
-      <section className="botanical-hero-card welcome-travel-hero">
-        <div className="hero-text">
-          <span className="leaf-badge">
-            <Icon name="compass" size={15} /> 日本を旅しよう！
-          </span>
-          <h2>ワクワクする旅の計画をはじめよう</h2>
-          <p className="hero-desc">
-            行きたい場所を検索してしおりに追加するだけ。周辺のカフェや持ち物チェックも丸ごとおまかせ！
-          </p>
-        </div>
+      {/* 使い方ガイドモーダル（ページ訪問時にふんわり表示＆はてなボタンで再表示） */}
+      {showGuideModal && (
+        <div className="modal-backdrop" onClick={handleCloseGuideModal}>
+          <div
+            className="modal-card guide-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guide-modal-title"
+          >
+            <div className="modal-header guide-modal-header">
+              <div className="guide-modal-title-group">
+                <span className="leaf-badge">
+                  <Icon name="compass" size={14} /> 日本を旅しよう！
+                </span>
+                <h3 id="guide-modal-title">ワクワクする旅の計画をはじめよう</h3>
+              </div>
+              <button
+                type="button"
+                className="guide-modal-close-btn"
+                onClick={handleCloseGuideModal}
+                aria-label="閉じる"
+              >
+                <Icon name="x" size={18} />
+              </button>
+            </div>
 
-        {/* 3ステップガイド */}
-        <div className="travel-three-steps-row">
-          <div className="step-guide-card">
-            <div className="step-guide-badge">Step 1</div>
-            <div className="step-guide-icon-box">🔍</div>
-            <div className="step-guide-info">
-              <strong className="step-guide-title">行きたい場所を検索</strong>
-              <p className="step-guide-desc">観光地やお店、GoogleマップのURLもそのまま貼るだけ！</p>
+            <p className="guide-modal-intro">
+              行きたい場所を検索してしおりに追加するだけ。周辺のカフェや持ち物チェックも丸ごとおまかせ！
+            </p>
+
+            {/* 3ステップガイド */}
+            <div className="travel-three-steps-row guide-modal-steps">
+              <div className="step-guide-card">
+                <div className="step-guide-badge">Step 1</div>
+                <div className="step-guide-icon-box">🔍</div>
+                <div className="step-guide-info">
+                  <strong className="step-guide-title">行きたい場所を検索</strong>
+                  <p className="step-guide-desc">観光地やお店、GoogleマップのURLもそのまま貼るだけ！</p>
+                </div>
+              </div>
+              <div className="step-guide-arrow">➔</div>
+              <div className="step-guide-card">
+                <div className="step-guide-badge">Step 2</div>
+                <div className="step-guide-icon-box">📖</div>
+                <div className="step-guide-info">
+                  <strong className="step-guide-title">しおりに追加</strong>
+                  <p className="step-guide-desc">日程や周辺の寄り道スポット（カフェ・宿）をカンタン整理</p>
+                </div>
+              </div>
+              <div className="step-guide-arrow">➔</div>
+              <div className="step-guide-card">
+                <div className="step-guide-badge">Step 3</div>
+                <div className="step-guide-icon-box">🎒</div>
+                <div className="step-guide-info">
+                  <strong className="step-guide-title">持ち物をそろえてGO!</strong>
+                  <p className="step-guide-desc">現地の気温に合わせた服装チェックや割り勘計算もスムーズ</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="step-guide-arrow">➔</div>
-          <div className="step-guide-card">
-            <div className="step-guide-badge">Step 2</div>
-            <div className="step-guide-icon-box">📖</div>
-            <div className="step-guide-info">
-              <strong className="step-guide-title">しおりに追加</strong>
-              <p className="step-guide-desc">日程や周辺の寄り道スポット（カフェ・レストラン）をカンタン整理</p>
-            </div>
-          </div>
-          <div className="step-guide-arrow">➔</div>
-          <div className="step-guide-card">
-            <div className="step-guide-badge">Step 3</div>
-            <div className="step-guide-icon-box">🎒</div>
-            <div className="step-guide-info">
-              <strong className="step-guide-title">持ち物をそろえてGO!</strong>
-              <p className="step-guide-desc">現地の気温に合わせた服装チェックや割り勘計算もスムーズ</p>
+
+            <div className="guide-modal-actions">
+              <button
+                type="button"
+                className="btn btn-sage guide-modal-confirm-btn"
+                onClick={handleCloseGuideModal}
+              >
+                さっそくスポットを探す ✨
+              </button>
             </div>
           </div>
         </div>
-      </section>
+      )}
 
       {/* 泊数が2日以上の場合は、しおり追加先の対象日（何日目か）を切り替えられるバーを表示 */}
       {stayDays > 1 && (
@@ -398,7 +445,18 @@ export default function SearchTab({
             <Icon name="search" size={18} />
             <h3>全国のスポットを検索する</h3>
           </div>
-          <span className="count-pill">スポット名・GoogleマップURL両対応</span>
+          <div className="search-header-right-actions">
+            <span className="count-pill">スポット名・GoogleマップURL両対応</span>
+            <button
+              type="button"
+              className="btn-help-circle"
+              onClick={() => setShowGuideModal(true)}
+              title="使い方ガイドを見る"
+              aria-label="使い方ガイドを見る"
+            >
+              <Icon name="helpCircle" size={20} />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleExecuteSearch} className="search-input-form-row">

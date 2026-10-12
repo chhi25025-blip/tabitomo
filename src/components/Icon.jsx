@@ -145,6 +145,13 @@ const PATHS = {
       <path d="M17 15c1-1 1-3 0-4s-1-3 0-4" />
     </>
   ),
+  helpCircle: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 18, strokeWidth = 2, className = '' }) {
