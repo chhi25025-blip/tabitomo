@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from './components/Icon';
 import SearchTab from './components/SearchTab';
 import ShioriTab from './components/ShioriTab';
 import MochimonoTab from './components/MochimonoTab';
 import WarikanTab from './components/WarikanTab';
+import GuideModal from './components/GuideModal';
 import {
   INITIAL_TRIPS,
   INITIAL_MY_ITEMS,
@@ -21,6 +22,27 @@ const TAB_DEFS = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('shiori');
+
+  // 使い方ガイドモーダル開閉ステート
+  const [showGuideModal, setShowGuideModal] = useState(false);
+
+  // 初回訪問時：スマホ（画面幅768px以下）の場合はポップアップでガイドを表示
+  useEffect(() => {
+    try {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+      const dismissed = sessionStorage.getItem('tabitomo_guide_dismissed') === 'true';
+      if (isMobile && !dismissed) {
+        setShowGuideModal(true);
+      }
+    } catch {}
+  }, []);
+
+  const handleCloseGuideModal = () => {
+    setShowGuideModal(false);
+    try {
+      sessionStorage.setItem('tabitomo_guide_dismissed', 'true');
+    } catch {}
+  };
 
   // 旅行リスト（最大5件、localStorage永続化）
   const [trips, setTrips] = usePersistentState('tabitomo.trips', INITIAL_TRIPS);
@@ -273,21 +295,34 @@ export default function App() {
             </div>
           </div>
 
-          {/* PC向け ナビゲーションタブ */}
-          <nav className="desktop-tab-nav" aria-label="メインメニュー">
-            {TAB_DEFS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`tab-nav-btn ${activeTab === t.id ? 'is-active' : ''}`}
-                onClick={() => setActiveTab(t.id)}
-                aria-current={activeTab === t.id ? 'page' : undefined}
-              >
-                <Icon name={t.icon} size={16} />
-                <span>{t.longLabel}</span>
-              </button>
-            ))}
-          </nav>
+          <div className="header-right-group">
+            {/* PC向け ナビゲーションタブ */}
+            <nav className="desktop-tab-nav" aria-label="メインメニュー">
+              {TAB_DEFS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`tab-nav-btn ${activeTab === t.id ? 'is-active' : ''}`}
+                  onClick={() => setActiveTab(t.id)}
+                  aria-current={activeTab === t.id ? 'page' : undefined}
+                >
+                  <Icon name={t.icon} size={16} />
+                  <span>{t.longLabel}</span>
+                </button>
+              ))}
+            </nav>
+
+            {/* ヘッダー右端のはてなマーク（使い方ガイド） */}
+            <button
+              type="button"
+              className="btn-help-circle header-help-btn"
+              onClick={() => setShowGuideModal(true)}
+              title="使い方ガイドを見る"
+              aria-label="使い方ガイドを見る"
+            >
+              <Icon name="helpCircle" size={19} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -386,6 +421,12 @@ export default function App() {
           <span>{toastMsg}</span>
         </div>
       )}
+
+      {/* ===== 使い方ガイドモーダル（ポップアップ） ===== */}
+      <GuideModal
+        isOpen={showGuideModal}
+        onClose={handleCloseGuideModal}
+      />
     </div>
   );
 }

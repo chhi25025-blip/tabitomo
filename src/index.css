@@ -4635,42 +4635,48 @@ input:checked + .toggle-slider::after {
   }
 }
 
-/* ---------------- 旅探し 使い方ガイドポップアップ & はてなボタン ---------------- */
-.btn-help-circle {
+/* ---------------- ヘッダー右側ボタングループ & はてなマーク ---------------- */
+.header-right-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-help-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: 1.5px solid #64748b; /* 濃いめのグレー */
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.9);
   color: #475569; /* 濃いめのグレー */
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0;
   flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.btn-help-circle:hover {
+.header-help-btn:hover {
   background: #f1f5f9;
-  color: #1e293b; /* ホバーでより濃いグレー */
+  color: #0f172a; /* ホバーでより濃いグレー */
   border-color: #334155;
   transform: translateY(-1px) scale(1.06);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
-.btn-help-circle:active {
+.header-help-btn:active {
   transform: translateY(0) scale(0.95);
 }
 
-.search-header-right-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* ---------------- 旅探し 使い方ガイド（PC常時表示 / スマホ非表示） ---------------- */
+.desktop-only-guide {
+  display: block;
 }
 
+/* ---------------- ガイドポップアップ（モーダル） ---------------- */
 .guide-modal-card {
   max-width: 680px !important;
   padding: 26px !important;
@@ -4745,18 +4751,26 @@ input:checked + .toggle-slider::after {
 }
 
 @media (max-width: 768px) {
+  /* スマホ版ではPC専用の大きな説明書きバナーを隠してスッキリさせる */
+  .desktop-only-guide {
+    display: none !important;
+  }
+
+  .header-right-group {
+    gap: 8px;
+  }
+
   .guide-modal-card {
     padding: 20px 16px !important;
     max-height: 90vh;
     overflow-y: auto;
   }
+
   .guide-modal-title-group h3 {
     font-size: 1.1rem;
   }
-  .search-header-right-actions {
-    gap: 6px;
-  }
 }
+
 
 
 
