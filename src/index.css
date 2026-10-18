@@ -947,26 +947,52 @@ select:focus {
 /* タイムラインのサムネイル写真 */
 .timeline-card-top-flex {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: flex-start;
+  width: 100%;
+  min-width: 0;
 }
 
 .timeline-card-main-col {
-  flex: 1;
+  flex: 1 1 0%;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .timeline-thumb-col {
-  width: 96px;
+  width: 88px;
   flex-shrink: 0;
 }
 
 .timeline-spot-thumb {
   border-radius: var(--radius-md) !important;
   border: 1px solid var(--border);
+}
+
+/* サムネイル内の水彩フォールバックが小さい枠からはみ出ないように調整 */
+.timeline-spot-thumb .watercolor-content {
+  padding: 4px !important;
+  gap: 2px !important;
+}
+
+.timeline-spot-thumb .watercolor-icon {
+  font-size: 1.25rem !important;
+}
+
+.timeline-spot-thumb .watercolor-title {
+  font-size: 0.65rem !important;
+  line-height: 1.2 !important;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.timeline-spot-thumb .watercolor-tag,
+.timeline-spot-thumb .photo-credit-badge {
+  display: none !important;
 }
 
 .modal-desc-text {
@@ -1615,12 +1641,18 @@ select:focus {
   gap: 0;
   position: relative;
   padding-left: 6px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .timeline-node {
   display: flex;
   gap: 16px;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .timeline-badge-col {
@@ -1658,7 +1690,10 @@ select:focus {
 }
 
 .timeline-card {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1677,33 +1712,44 @@ select:focus {
 
 .spot-header-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .spot-title-area {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 
 .spot-cat-pill {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .spot-name-text {
-  font-size: 1.1rem;
+  font-size: 1.08rem;
   font-weight: 700;
   color: var(--text);
+  line-height: 1.35;
+  margin: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .spot-reorder-btns {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .icon-reorder-btn {
@@ -1729,16 +1775,20 @@ select:focus {
 .spot-time-stay-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   font-size: 0.82rem;
   color: var(--text-muted);
   flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
 }
 
 .mini-time-label, .mini-stay-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .inline-time-input {
@@ -1747,6 +1797,7 @@ select:focus {
   font-size: 0.82rem !important;
   border-radius: 6px !important;
   width: 105px;
+  box-sizing: border-box !important;
 }
 
 .inline-stay-input {
@@ -1756,6 +1807,7 @@ select:focus {
   border-radius: 6px !important;
   width: 58px;
   text-align: center;
+  box-sizing: border-box !important;
 }
 
 .spot-memo-box {
@@ -2325,6 +2377,9 @@ select:focus {
   gap: 16px;
   position: relative;
   margin-bottom: 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .startpoint-badge-col {
@@ -2356,11 +2411,15 @@ select:focus {
 }
 
 .startpoint-banner-body {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   background: var(--surface-card);
   border: 1px solid var(--border);
   border-left: 4px solid #587b66;
@@ -2372,6 +2431,8 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+  flex: 1;
 }
 
 .startpoint-title-line {
@@ -4427,6 +4488,9 @@ input:checked + .toggle-slider::after {
   gap: 16px;
   margin: 4px 0 12px 0;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .transit-track-col {
@@ -4457,7 +4521,9 @@ input:checked + .toggle-slider::after {
 }
 
 .transit-card-box {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 100%;
   background: #fafaf8;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -4577,54 +4643,161 @@ input:checked + .toggle-slider::after {
   border-color: #1a73e8 !important;
 }
 
-/* スマホ表示の最適化: ボタンのはみ出しを防ぎ、綺麗にフィット */
-@media (max-width: 600px) {
-  .timeline-transit-node {
-    gap: 10px;
-    margin: 4px 0 10px 0;
+/* スマホ表示（Safari含む）の完全最適化: 右端のはみ出し防止＆カードの縦長解消 */
+@media (max-width: 768px) {
+  .timeline-container {
+    padding-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  .transit-track-col {
-    width: 28px;
+  .timeline-node,
+  .timeline-transit-node,
+  .timeline-startpoint-banner {
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .timeline-badge-col,
+  .transit-track-col,
+  .startpoint-badge-col {
+    width: 26px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .timeline-badge,
+  .startpoint-icon-badge {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .timeline-card {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 12px !important;
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  .startpoint-banner-body {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 10px 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  .timeline-card-top-flex {
+    gap: 10px !important;
+  }
+
+  .timeline-thumb-col {
+    width: 72px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .spot-name-text {
+    font-size: 0.98rem !important;
+    line-height: 1.35 !important;
+  }
+
+  .icon-reorder-btn {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .spot-time-stay-row {
+    gap: 8px 10px !important;
+  }
+
+  .inline-time-input {
+    width: 96px !important;
+    height: 30px !important;
+    padding: 0 6px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .inline-stay-input {
+    width: 50px !important;
+    height: 30px !important;
+    padding: 0 4px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .timeline-transit-node {
+    margin: 4px 0 10px 0 !important;
   }
 
   .transit-card-box {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
     padding: 8px 10px;
-    width: 100%;
-    box-sizing: border-box;
+    box-sizing: border-box !important;
   }
 
   .transit-inputs-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box !important;
+  }
+
+  .transit-field-inline {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
     width: 100%;
-    flex-wrap: wrap;
+    min-width: 0;
+    box-sizing: border-box !important;
   }
 
-  .transit-field-inline {
-    flex: 1;
+  .transit-label-text {
+    font-size: 0.78rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
 
   .transit-ui-select {
-    width: 100%;
+    flex: 1;
+    max-width: 175px;
     min-width: 0;
-    font-size: 0.78rem !important;
-    padding: 0 4px !important;
+    font-size: 0.8rem !important;
+    padding: 0 6px !important;
+    box-sizing: border-box !important;
+  }
+
+  .transit-hm-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
   }
 
   .transit-input-h {
-    width: 38px !important;
-    font-size: 0.8rem !important;
+    width: 44px !important;
+    height: 30px !important;
+    font-size: 0.82rem !important;
+    box-sizing: border-box !important;
   }
 
   .transit-input-m {
-    width: 42px !important;
-    font-size: 0.8rem !important;
+    width: 48px !important;
+    height: 30px !important;
+    font-size: 0.82rem !important;
+    box-sizing: border-box !important;
   }
 
   .transit-gmaps-link-btn {

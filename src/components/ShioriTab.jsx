@@ -851,106 +851,106 @@ export default function ShioriTab({
                               {/* スポット情報カード */}
                               <div className="timeline-card">
                                 <div className="timeline-card-top-flex">
-                                <div className="timeline-card-main-col">
-                                  <div className="spot-header-row">
-                                    <div className="spot-title-area">
+                                  <div className="timeline-card-main-col">
+                                    <div className="spot-header-row">
                                       <span className="spot-cat-pill">
                                         {spot.icon || '📍'} {spot.category || '立ち寄り'}
                                       </span>
-                                      <h4 className="spot-name-text">{spot.name}</h4>
-                                    </div>
 
-                                    <div className="spot-reorder-btns">
-                                      <button
-                                        type="button"
-                                        className="icon-reorder-btn"
-                                        disabled={dayIdx === 0}
-                                        onClick={() => handleMoveSpotInDay(spot.id, -1)}
-                                        title="上へ移動"
-                                        aria-label="上へ移動"
-                                      >
-                                        <Icon name="chevronUp" size={15} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="icon-reorder-btn"
-                                        disabled={isLastInDay}
-                                        onClick={() => handleMoveSpotInDay(spot.id, 1)}
-                                        title="下へ移動"
-                                        aria-label="下へ移動"
-                                      >
-                                        <Icon name="chevronDown" size={15} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="icon-reorder-btn danger"
-                                        onClick={() => handleDeleteSpot(spot.id)}
-                                        title="削除"
-                                        aria-label="削除"
-                                      >
-                                        <Icon name="trash" size={15} />
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {/* 時間・滞在目安・日程の入力 */}
-                                  <div className="spot-time-stay-row">
-                                    {stayDays > 1 && (
-                                      <label className="mini-day-label">
-                                        <Icon name="calendar" size={13} />
-                                        <select
-                                          value={spot.day || 1}
-                                          onChange={(e) =>
-                                            handleSpotFieldChange(spot.id, 'day', Number(e.target.value))
-                                          }
-                                          className="inline-day-select"
-                                          title="予定の日程を変更"
+                                      <div className="spot-reorder-btns">
+                                        <button
+                                          type="button"
+                                          className="icon-reorder-btn"
+                                          disabled={dayIdx === 0}
+                                          onClick={() => handleMoveSpotInDay(spot.id, -1)}
+                                          title="上へ移動"
+                                          aria-label="上へ移動"
                                         >
-                                          {daysArray.map((d) => (
-                                            <option key={d} value={d}>
-                                              📅 {d}日目 ({getDayDateString(currentTrip?.date, d)})
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </label>
-                                    )}
-                                    <label className="mini-time-label">
-                                      <Icon name="clock" size={13} /> 時間:
-                                      <input
-                                        type="time"
-                                        value={spot.time || '10:00'}
-                                        onChange={(e) => handleSpotFieldChange(spot.id, 'time', e.target.value)}
-                                        className="inline-time-input"
-                                      />
-                                    </label>
-                                    <label className="mini-stay-label">
-                                      滞在:
-                                      <input
-                                        type="number"
-                                        min="5"
-                                        step="5"
-                                        value={spot.stayMin || 45}
-                                        onChange={(e) => handleSpotFieldChange(spot.id, 'stayMin', e.target.value)}
-                                        className="inline-stay-input"
-                                      />
-                                      分
-                                    </label>
+                                          <Icon name="chevronUp" size={15} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="icon-reorder-btn"
+                                          disabled={isLastInDay}
+                                          onClick={() => handleMoveSpotInDay(spot.id, 1)}
+                                          title="下へ移動"
+                                          aria-label="下へ移動"
+                                        >
+                                          <Icon name="chevronDown" size={15} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="icon-reorder-btn danger"
+                                          onClick={() => handleDeleteSpot(spot.id)}
+                                          title="削除"
+                                          aria-label="削除"
+                                        >
+                                          <Icon name="trash" size={15} />
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <h4 className="spot-name-text">{spot.name}</h4>
+                                  </div>
+
+                                  {/* スポット写真サムネイル */}
+                                  <div className="timeline-thumb-col">
+                                    <SpotImage
+                                      src={spot.imageUrl}
+                                      alt={spot.name}
+                                      source={spot.imageSource}
+                                      title={spot.name}
+                                      desc={spot.memo}
+                                      aspectRatio="4/3"
+                                      className="timeline-spot-thumb"
+                                    />
                                   </div>
                                 </div>
 
-                                {/* スポット写真サムネイル */}
-                                <div className="timeline-thumb-col">
-                                  <SpotImage
-                                    src={spot.imageUrl}
-                                    alt={spot.name}
-                                    source={spot.imageSource}
-                                    title={spot.name}
-                                    desc={spot.memo}
-                                    aspectRatio="4/3"
-                                    className="timeline-spot-thumb"
-                                  />
+                                {/* 時間・滞在目安・日程の入力（カード全幅でゆったり横並び） */}
+                                <div className="spot-time-stay-row">
+                                  {stayDays > 1 && (
+                                    <label className="mini-day-label">
+                                      <Icon name="calendar" size={13} />
+                                      <select
+                                        value={spot.day || 1}
+                                        onChange={(e) =>
+                                          handleSpotFieldChange(spot.id, 'day', Number(e.target.value))
+                                        }
+                                        className="inline-day-select"
+                                        title="予定の日程を変更"
+                                      >
+                                        {daysArray.map((d) => (
+                                          <option key={d} value={d}>
+                                            📅 {d}日目 ({getDayDateString(currentTrip?.date, d)})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                  )}
+                                  <label className="mini-time-label">
+                                    <Icon name="clock" size={13} />
+                                    <span>時間:</span>
+                                    <input
+                                      type="time"
+                                      value={spot.time || '10:00'}
+                                      onChange={(e) => handleSpotFieldChange(spot.id, 'time', e.target.value)}
+                                      className="inline-time-input"
+                                    />
+                                  </label>
+                                  <label className="mini-stay-label">
+                                    <span>滞在:</span>
+                                    <input
+                                      type="number"
+                                      min="5"
+                                      step="5"
+                                      value={spot.stayMin || 45}
+                                      onChange={(e) => handleSpotFieldChange(spot.id, 'stayMin', e.target.value)}
+                                      className="inline-stay-input"
+                                    />
+                                    <span>分</span>
+                                  </label>
                                 </div>
-                              </div>
 
                               {/* メモ */}
                               <div className="spot-memo-box">
