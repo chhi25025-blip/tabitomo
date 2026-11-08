@@ -9,8 +9,6 @@ import {
 import {
   searchSpotFromWikipedia,
   fetchSearchSuggestions,
-  getExternalApiKeys,
-  saveExternalApiKeys,
   fetchNearbySpotsHybrid,
   resolveGoogleMapsSpot,
   isGoogleMapsUrl,
@@ -87,11 +85,6 @@ export default function SearchTab({
 
   // 寄り道スポットの拡大展開ID
   const [expandedYorimichiId, setExpandedYorimichiId] = useState(null);
-
-  // APIキー設定モーダル
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKeys, setApiKeys] = useState(getExternalApiKeys);
-  const [apiKeySavedMsg, setApiKeySavedMsg] = useState(false);
 
   // 入力キーワードに基づくリアルタイムサジェスト取得（デバウンス処理）
   useEffect(() => {
@@ -305,17 +298,6 @@ export default function SearchTab({
     setTimeout(() => setAddedToast(null), 2500);
   };
 
-  // APIキーの保存
-  const handleSaveApiKeys = (e) => {
-    e.preventDefault();
-    saveExternalApiKeys(apiKeys);
-    setApiKeySavedMsg(true);
-    setTimeout(() => {
-      setApiKeySavedMsg(false);
-      setShowApiKeyModal(false);
-    }, 1200);
-  };
-
   const styleMeta = styleInfo(selectedSpot?.style || 'drive');
 
   return (
@@ -398,7 +380,6 @@ export default function SearchTab({
             <Icon name="search" size={18} />
             <h3>全国のスポットを検索する</h3>
           </div>
-          <span className="count-pill">スポット名・GoogleマップURL両対応</span>
         </div>
 
         <form onSubmit={handleExecuteSearch} className="search-input-form-row">
@@ -860,108 +841,6 @@ export default function SearchTab({
             </p>
           </div>
         </section>
-      )}
-
-      {/* 外部API設定ボタン（控えめに最下部に配置） */}
-      <div className="search-footer-settings-row">
-        <button
-          type="button"
-          className="api-settings-link-btn"
-          onClick={() => setShowApiKeyModal(true)}
-        >
-          ⚙️ 外部API設定（ホットペッパー・じゃらん・楽天）
-        </button>
-      </div>
-
-      {/* APIキー設定モーダル */}
-      {showApiKeyModal && (
-        <div className="modal-backdrop" onClick={() => setShowApiKeyModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>外部API設定（ホットペッパー・楽天）</h3>
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setShowApiKeyModal(false)}
-              >
-                <Icon name="x" size={18} />
-              </button>
-            </div>
-
-            <p className="modal-desc-text">
-              周辺の寄り道グルメ取得に<strong>ホットペッパーグルメAPI</strong>、写真の穴埋めに<strong>楽天トラベルAPI</strong>を利用しています（どちらも無料・クレカ不要）。
-            </p>
-
-            <form onSubmit={handleSaveApiKeys} className="modal-form">
-              <label className="field-block">
-                <span className="field-label">ホットペッパーグルメ APIキー</span>
-                <input
-                  type="text"
-                  value={apiKeys.hotpepperKey || ''}
-                  onChange={(e) =>
-                    setApiKeys({ ...apiKeys, hotpepperKey: e.target.value.trim() })
-                  }
-                  placeholder="例: 940f835bee45d662"
-                />
-              </label>
-
-              <label className="field-block">
-                <span className="field-label">楽天トラベル アプリID (applicationId)</span>
-                <input
-                  type="text"
-                  value={apiKeys.rakutenId}
-                  onChange={(e) =>
-                    setApiKeys({ ...apiKeys, rakutenId: e.target.value.trim() })
-                  }
-                  placeholder="例: 74e20a2f-7465-4c98-86e6-6f75788ba853"
-                />
-              </label>
-
-              <label className="field-block">
-                <span className="field-label">楽天トラベル アクセスキー (accessKey)</span>
-                <input
-                  type="text"
-                  value={apiKeys.rakutenKey || ''}
-                  onChange={(e) =>
-                    setApiKeys({ ...apiKeys, rakutenKey: e.target.value.trim() })
-                  }
-                  placeholder="例: pk_yTV1Up1or1M35FIq88Rb..."
-                />
-              </label>
-
-              <label className="field-block">
-                <span className="field-label">じゃらんWebサービス APIキー</span>
-                <input
-                  type="text"
-                  value={apiKeys.jalanKey}
-                  onChange={(e) =>
-                    setApiKeys({ ...apiKeys, jalanKey: e.target.value.trim() })
-                  }
-                  placeholder="例: rec_abc123..."
-                />
-              </label>
-
-              {apiKeySavedMsg && (
-                <p className="form-success-text">
-                  <Icon name="check" size={15} /> 設定を保存しました！
-                </p>
-              )}
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => setShowApiKeyModal(false)}
-                >
-                  閉じる
-                </button>
-                <button type="submit" className="btn btn-sage">
-                  設定を保存
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
 
       {/* フローティング追加通知 */}

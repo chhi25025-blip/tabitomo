@@ -47,6 +47,78 @@ export function formatDate(iso) {
 }
 
 /**
+ * 開始日(YYYY-MM-DD)と泊数(stayDays: 1=日帰り, 2=1泊2日...)から終了日(YYYY-MM-DD)を計算
+ */
+export function calcEndDateFromStayDays(startDate, stayDays = 1) {
+  if (!startDate) return '';
+  try {
+    const [y, m, d] = startDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    if (isNaN(date.getTime())) return '';
+    const daysToAdd = Math.max(1, stayDays) - 1;
+    date.setDate(date.getDate() + daysToAdd);
+    return toISODate(date);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * 開始日(YYYY-MM-DD)と終了日(YYYY-MM-DD)から総日数（stayDays: 1以上）を計算
+ * 例: 2026-11-01 〜 2026-11-01 => 1 (日帰り)
+ * 例: 2026-11-01 〜 2026-11-02 => 2 (1泊2日)
+ */
+export function calcStayDaysFromDates(startDate, endDate) {
+  if (!startDate) return 1;
+  if (!endDate) return 1;
+  try {
+    const [sy, sm, sd] = startDate.split('-').map(Number);
+    const [ey, em, ed] = endDate.split('-').map(Number);
+    const start = new Date(sy, sm - 1, sd);
+    const end = new Date(ey, em - 1, ed);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 1;
+    const diffMs = end.getTime() - start.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    return Math.max(1, diffDays + 1);
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * stayDays (1, 2, 3...) から泊数・日数の日本語ラベルを生成
+ * 例: 1 => '日帰り（1日間）'
+ * 例: 2 => '1泊2日（2日間）'
+ * 例: 5 => '4泊5日（5日間）'
+ */
+export function formatStayDaysLabel(stayDays) {
+  const days = Math.max(1, Number(stayDays) || 1);
+  if (days === 1) return '日帰り（1日間）';
+  return `${days - 1}泊${days}日（${days}日間）`;
+}
+
+/**
+ * 開始日と終了日の期間表示（例: 2026年11月1日(日) 〜 11月3日(火)）
+ */
+export function formatDateRange(startDate, endDate) {
+  if (!startDate) return '';
+  if (!endDate || startDate === endDate) {
+    return formatDate(startDate);
+  }
+  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const [ey, em, ed] = endDate.split('-').map(Number);
+  const startObj = new Date(sy, sm - 1, sd);
+  const endObj = new Date(ey, em - 1, ed);
+  const sw = '日月火水木金土'[startObj.getDay()];
+  const ew = '日月火水木金土'[endObj.getDay()];
+
+  if (sy === ey) {
+    return `${sy}年${sm}月${sd}日(${sw}) 〜 ${em}月${ed}日(${ew})`;
+  }
+  return `${sy}年${sm}月${sd}日(${sw}) 〜 ${ey}年${em}月${ed}日(${ew})`;
+}
+
+/**
  * 基準日と日程番号（1, 2, 3...）から実際の日付文字列（例: 10月19日(日)）を生成
  */
 export function getDayDateString(baseDate, dayNumber) {

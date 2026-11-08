@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Icon from './Icon';
 import MapRoute from './MapRoute';
 import SpotImage from './SpotImage';
@@ -9,10 +9,24 @@ import {
   getGoogleMapsDirectionsUrl,
   addMinutesToTimeString,
   TRANSIT_MODES,
+  uid,
+  calcEndDateFromStayDays,
+  calcStayDaysFromDates,
+  formatStayDaysLabel,
+  formatDateRange,
+  defaultTripDate,
 } from '../utils';
 import { TRIP_STYLES, styleInfo } from '../travelData';
 
-import { resolveGoogleMapsSpot, isGoogleMapsUrl } from '../api/spotSearchApi';
+import {
+  resolveGoogleMapsSpot,
+  isGoogleMapsUrl,
+  searchGourmetFromHotpepper,
+  fetchNearbyHotpepperGourmet,
+  searchPhotoFromRakuten,
+  getExternalApiKeys,
+} from '../api/spotSearchApi';
+import AiPlanInlinePanel from './AiPlanInlinePanel';
 
 const START_PRESETS = [
   { name: '自宅（マイカー・出発）', lat: 35.6812, lng: 139.7671 },
@@ -34,9 +48,35 @@ export default function ShioriTab({
   onUpdateTripMeta,
   onUpdateItinerary,
   onSwitchToSearchTab,
+  onImportAiPlan,
 }) {
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [showAddSpotModal, setShowAddSpotModal] = useState(false);
+  const [showAiImportPanel, setShowAiImportPanel] = useState(false);
+  const aiPanelRef = useRef(null);
+
+  // AI作成パネルへの自動ワープ（スムーズスクロール）
+  const handleOpenAiPanel = () => {
+    setShowAiImportPanel(true);
+    setTimeout(() => {
+      if (aiPanelRef.current) {
+        aiPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 60);
+  };
+
+  // パネルが開かれたときに確実に自動スクロール
+  useEffect(() => {
+    if (showAiImportPanel) {
+      const timer = setTimeout(() => {
+        if (aiPanelRef.current) {
+          aiPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [showAiImportPanel]);
+
   const [isEditingStart, setIsEditingStart] = useState(false);
 
   // 日程フィルタータブ（'all' または 1, 2, 3...）
@@ -55,6 +95,12 @@ export default function ShioriTab({
   const [customSpotMemo, setCustomSpotMemo] = useState('');
   const [customSpotDay, setCustomSpotDay] = useState(1);
 
+  // 各スポットカードごとの周辺グルメ・宿検索ステート
+  const [expandedNearbySpotId, setExpandedNearbySpotId] = useState(null);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyCache, setNearbyCache] = useState({}); // { [spotId]: { gourmets: [], hotels: [] } }
+  const [nearbyTab, setNearbyTab] = useState('gourmet'); // 'gourmet' | 'hotel'
+
   const currentTrip =
     (trips && trips.find((t) => t.id === activeTripId)) ||
     (trips && trips[0]) || {
@@ -70,7 +116,11 @@ export default function ShioriTab({
 
   // 旅行タイトル等の編集用ローカルステート
   const [editTitle, setEditTitle] = useState(currentTrip?.title || '');
-  const [editDate, setEditDate] = useState(currentTrip?.date || '');
+  const [editDate, setEditDate] = useState(currentTrip?.date || defaultTripDate());
+  const [editEndDate, setEditEndDate] = useState(
+    currentTrip?.endDate ||
+      calcEndDateFromStayDays(currentTrip?.date || defaultTripDate(), currentTrip?.stayDays || 2)
+  );
   const [editStayDays, setEditStayDays] = useState(currentTrip?.stayDays || 2);
   const [editStyle, setEditStyle] = useState(currentTrip?.style || 'drive');
   const [editMemo, setEditMemo] = useState(currentTrip?.memo || '');
@@ -118,9 +168,12 @@ export default function ShioriTab({
     onSelectTrip(id);
     const target = trips.find((t) => t.id === id);
     if (target) {
+      const start = target.date || defaultTripDate();
+      const end = target.endDate || calcEndDateFromStayDays(start, target.stayDays || 2);
       setEditTitle(target.title);
-      setEditDate(target.date);
-      setEditStayDays(target.stayDays || 2);
+      setEditDate(start);
+      setEditEndDate(end);
+      setEditStayDays(calcStayDaysFromDates(start, end));
       setEditStyle(target.style || 'drive');
       setEditMemo(target.memo || '');
       setStartName(target.startPoint?.name || '自宅・出発地');
@@ -138,10 +191,12 @@ export default function ShioriTab({
   const handleSaveMeta = (e) => {
     e.preventDefault();
     if (!editTitle.trim()) return;
+    const computedDays = calcStayDaysFromDates(editDate, editEndDate);
     onUpdateTripMeta(currentTrip.id, {
       title: editTitle.trim(),
       date: editDate,
-      stayDays: Number(editStayDays) || 2,
+      endDate: editEndDate,
+      stayDays: computedDays,
       style: editStyle,
       memo: editMemo.trim(),
     });
@@ -203,6 +258,95 @@ export default function ShioriTab({
       s.id === spotId ? { ...s, [field]: value } : s
     );
     onUpdateItinerary(currentTrip.id, list);
+  };
+
+  // 周辺グルメ・宿の検索トグル
+  const handleToggleNearby = async (spot) => {
+    if (expandedNearbySpotId === spot.id) {
+      setExpandedNearbySpotId(null);
+      return;
+    }
+
+    setExpandedNearbySpotId(spot.id);
+    setNearbyTab('gourmet');
+
+    // すでにキャッシュがあれば再取得不要
+    if (nearbyCache[spot.id]) {
+      return;
+    }
+
+    setNearbyLoading(true);
+    try {
+      let gourmets = [];
+      let hotels = [];
+
+      // 座標がある場合は半径検索
+      if (spot.lat && spot.lng) {
+        gourmets = await fetchNearbyHotpepperGourmet(spot.lat, spot.lng, 5, 6);
+      } else {
+        // スポット名（地名）でキーワード検索
+        gourmets = await searchGourmetFromHotpepper(spot.name, 6);
+      }
+
+      // 楽天ホテル写真・宿検索
+      const rakutenResults = await searchPhotoFromRakuten(spot.name, getExternalApiKeys());
+      hotels = Array.isArray(rakutenResults) ? rakutenResults.slice(0, 4) : [];
+
+      setNearbyCache((prev) => ({
+        ...prev,
+        [spot.id]: { gourmets: gourmets || [], hotels: hotels || [] },
+      }));
+    } catch (err) {
+      console.warn('Failed to fetch nearby spots:', err);
+      setNearbyCache((prev) => ({
+        ...prev,
+        [spot.id]: { gourmets: [], hotels: [] },
+      }));
+    } finally {
+      setNearbyLoading(false);
+    }
+  };
+
+  // 周辺で見つけたお店や宿をしおりに追加
+  const handleAddNearbyToItinerary = (parentSpot, item, type = 'gourmet') => {
+    const parentTime = parentSpot.time || '12:00';
+    const parentStay = parentSpot.stayMin || 45;
+    const nextTime = addMinutesToTimeString(parentTime, parentStay);
+
+    const isGourmet = type === 'gourmet';
+    const genreStr = item.genre?.name || item.genre || (isGourmet ? 'グルメ' : '宿泊');
+    const isCafe = String(genreStr).includes('カフェ') || String(item.name).includes('カフェ') || String(item.name).includes('喫茶');
+
+    const newSpotItem = {
+      id: uid('spot-nearby'),
+      name: item.name,
+      day: parentSpot.day || 1,
+      time: nextTime,
+      stayMin: isGourmet ? 50 : 60,
+      category: isCafe ? 'カフェ' : isGourmet ? 'グルメ' : '宿泊',
+      icon: isCafe ? '☕' : isGourmet ? '🍴' : '🏨',
+      memo: isGourmet
+        ? (item.catch || item.budget?.name || item.budget || '周辺おすすめグルメ')
+        : (item.hotelSpecial || item.caption || '周辺ホテル・温泉宿'),
+      lat: item.lat || parentSpot.lat,
+      lng: item.lng || parentSpot.lng,
+      imageUrl: item.photoUrl || item.imageUrl || null,
+      googleMapsUrl: item.urls?.pc || item.url || null,
+      transitMode: 'walk',
+      transitMin: 10,
+    };
+
+    // 親スポットの直後に挿入
+    const list = [...(currentTrip?.itinerary || [])];
+    const currentIndex = list.findIndex((s) => s.id === parentSpot.id);
+    if (currentIndex >= 0) {
+      list.splice(currentIndex + 1, 0, newSpotItem);
+    } else {
+      list.push(newSpotItem);
+    }
+
+    onUpdateItinerary(currentTrip.id, list);
+    setExpandedNearbySpotId(null);
   };
 
   // 区間の移動手段・所要時間を更新し、車・徒歩などの場合は該当スポットの到着時間を自動計算
@@ -394,7 +538,15 @@ export default function ShioriTab({
                 </span>
                 <h2 className="trip-title-large">{currentTrip?.title || '旅のしおり'}</h2>
                 <p className="trip-date-text">
-                  <Icon name="calendar" size={14} /> {formatDate(currentTrip?.date)}
+                  <Icon name="calendar" size={14} />{' '}
+                  {formatDateRange(
+                    currentTrip?.date,
+                    currentTrip?.endDate ||
+                      calcEndDateFromStayDays(currentTrip?.date, currentTrip?.stayDays || 1)
+                  )}
+                  <span className="trip-stay-badge-pill">
+                    {formatStayDaysLabel(currentTrip?.stayDays || 1)}
+                  </span>
                 </p>
                 {currentTrip?.memo && (
                   <p className="trip-memo-text">{currentTrip.memo}</p>
@@ -406,8 +558,14 @@ export default function ShioriTab({
                   type="button"
                   className="btn btn-outline btn-sm"
                   onClick={() => {
+                    const start = currentTrip?.date || defaultTripDate();
+                    const end =
+                      currentTrip?.endDate ||
+                      calcEndDateFromStayDays(start, currentTrip?.stayDays || 2);
                     setEditTitle(currentTrip?.title || '');
-                    setEditDate(currentTrip?.date || '');
+                    setEditDate(start);
+                    setEditEndDate(end);
+                    setEditStayDays(calcStayDaysFromDates(start, end));
                     setEditStyle(currentTrip?.style || 'drive');
                     setEditMemo(currentTrip?.memo || '');
                     setIsEditingMeta(true);
@@ -445,28 +603,54 @@ export default function ShioriTab({
               </label>
 
               <label className="field-block">
-                <span className="field-label">出発日</span>
+                <span className="field-label">📅 出発日</span>
                 <input
                   type="date"
                   value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
+                  onChange={(e) => {
+                    const nextStart = e.target.value;
+                    setEditDate(nextStart);
+                    if (!editEndDate || nextStart > editEndDate) {
+                      setEditEndDate(nextStart);
+                      setEditStayDays(1);
+                    } else {
+                      setEditStayDays(calcStayDaysFromDates(nextStart, editEndDate));
+                    }
+                  }}
                   required
                 />
               </label>
 
               <label className="field-block">
-                <span className="field-label">日程・泊数</span>
-                <select
-                  value={editStayDays}
-                  onChange={(e) => setEditStayDays(Number(e.target.value))}
-                >
-                  <option value={1}>日帰り（1日）</option>
-                  <option value={2}>1泊2日</option>
-                  <option value={3}>2泊3日</option>
-                  <option value={4}>3泊4日</option>
-                  <option value={5}>4泊5日</option>
-                </select>
+                <span className="field-label">🏁 帰着日（帰る日）</span>
+                <input
+                  type="date"
+                  value={editEndDate}
+                  min={editDate}
+                  onChange={(e) => {
+                    const nextEnd = e.target.value;
+                    setEditEndDate(nextEnd);
+                    if (editDate && nextEnd < editDate) {
+                      setEditDate(nextEnd);
+                      setEditStayDays(1);
+                    } else {
+                      setEditStayDays(calcStayDaysFromDates(editDate, nextEnd));
+                    }
+                  }}
+                  required
+                />
               </label>
+            </div>
+
+            <div className="form-row">
+              <div className="field-block">
+                <span className="field-label">⏱️ 日程・泊数（自動計算）</span>
+                <div className="stay-days-auto-badge">
+                  <span className="badge-icon">📅</span>
+                  <strong>{formatStayDaysLabel(editStayDays)}</strong>
+                  <span className="badge-hint">（カレンダーより自動計算）</span>
+                </div>
+              </div>
             </div>
 
             <div className="form-row">
@@ -549,7 +733,37 @@ export default function ShioriTab({
             >
               <Icon name="plus" size={14} /> 直接追加
             </button>
+            <button
+              type="button"
+              className={`btn ${showAiImportPanel ? 'btn-sage' : 'btn-outline-subtle'} btn-sm`}
+              onClick={() => {
+                if (showAiImportPanel) {
+                  setShowAiImportPanel(false);
+                } else {
+                  handleOpenAiPanel();
+                }
+              }}
+              title="ChatGPTやGeminiのプランをコピペで自動取り込み"
+            >
+              <Icon name="bot" size={14} /> {showAiImportPanel ? 'AI作成を閉じる' : '🤖 AIでおまかせ作成'}
+            </button>
           </div>
+        </div>
+
+        {/* AIプランインライン入力パネル（ボタンを押すと上部にスッと開いて自動ワープ！） */}
+        <div ref={aiPanelRef} style={{ scrollMarginTop: '85px' }}>
+          {showAiImportPanel && (
+            <AiPlanInlinePanel
+              currentTrip={currentTrip}
+              onClose={() => setShowAiImportPanel(false)}
+              onImportPlan={(importData) => {
+                if (onImportAiPlan) {
+                  onImportAiPlan(currentTrip.id, importData);
+                }
+                setShowAiImportPanel(false);
+              }}
+            />
+          )}
         </div>
 
         {/* 連泊時（stayDays > 1）の日程切り替えタブバー */}
@@ -581,8 +795,64 @@ export default function ShioriTab({
         {itinerary.length === 0 ? (
           <div className="empty-itinerary">
             <div className="empty-itinerary-icon">🎒</div>
-            <h4>まだ立ち寄りスポットが登録されていません</h4>
-            <p>行きたい観光地やカフェ・ホテルを追加して、あなただけの旅のしおりを作りましょう！</p>
+            <h4 className="empty-itinerary-title">行きたい場所を追加して、しおりを作りましょう！</h4>
+            <p className="empty-itinerary-desc">
+              タビトモなら、好みに合わせて3つの方法でスケジュールを組むことができます。
+            </p>
+
+            {/* 3通りの作り方案内カード */}
+            <div className="three-ways-creation-card">
+              <h5 className="ways-creation-title">
+                💡 あなたに合ったしおりの作り方を選べます
+              </h5>
+              <div className="ways-creation-grid">
+                <div
+                  className="way-item-box is-primary-way"
+                  onClick={() => onSwitchToSearchTab(1)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="way-item-head">
+                    <span className="way-badge badge-recommended">おすすめ</span>
+                    <span className="way-icon">🔍</span>
+                  </div>
+                  <strong className="way-title">1. たびさがしから探す</strong>
+                  <p className="way-desc">写真や人気スポット、周辺のカフェ・宿を見ながら楽しく選びたい人に！</p>
+                </div>
+
+                <div
+                  className="way-item-box"
+                  onClick={() => {
+                    setCustomSpotDay(selectedDayTab === 'all' ? 1 : Number(selectedDayTab));
+                    setShowAddSpotModal(true);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="way-item-head">
+                    <span className="way-badge badge-manual">自由作成</span>
+                    <span className="way-icon">➕</span>
+                  </div>
+                  <strong className="way-title">2. スポットを直接追加</strong>
+                  <p className="way-desc">行きたい場所が決まっている時や、GoogleマップのURLを貼って登録したい人に！</p>
+                </div>
+
+                <div
+                  className="way-item-box is-ai-way"
+                  onClick={handleOpenAiPanel}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="way-item-head">
+                    <span className="way-badge badge-shortcut">時短・おまかせ</span>
+                    <span className="way-icon">🤖</span>
+                  </div>
+                  <strong className="way-title">3. AIで一括おまかせ作成</strong>
+                  <p className="way-desc">調べるのが面倒な時や、ChatGPTなどの回答をパッと取り込みたい人に！</p>
+                </div>
+              </div>
+            </div>
+
             <div className="empty-itinerary-actions">
               <button
                 type="button"
@@ -599,7 +869,14 @@ export default function ShioriTab({
                   setShowAddSpotModal(true);
                 }}
               >
-                <Icon name="plus" size={16} /> スポットを直接追加
+                <Icon name="plus" size={15} /> スポットを直接追加
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-subtle"
+                onClick={handleOpenAiPanel}
+              >
+                <Icon name="bot" size={15} /> 🤖 AIでおまかせ作成
               </button>
             </div>
           </div>
@@ -963,17 +1240,159 @@ export default function ShioriTab({
                                 />
                               </div>
 
-                              {/* Googleマップ連携ボタン */}
+                              {/* Googleマップ連携 & 周辺グルメ・宿検索ボタン */}
                               <div className="spot-footer-action">
                                 <a
                                   href={spot.googleMapsUrl || navUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="btn btn-google-maps"
+                                  className="btn btn-google-maps btn-sm"
                                 >
-                                  <Icon name="navigation" size={14} /> Googleマップでナビを開く ↗
+                                  <Icon name="navigation" size={13} /> ナビ ↗
                                 </a>
+
+                                <button
+                                  type="button"
+                                  className={`btn ${expandedNearbySpotId === spot.id ? 'btn-sage' : 'btn-sage-soft'} btn-sm nearby-toggle-btn`}
+                                  onClick={() => handleToggleNearby(spot)}
+                                  title="このスポット周辺のカフェや飲食店・宿を検索"
+                                >
+                                  <Icon name={expandedNearbySpotId === spot.id ? 'x' : 'coffee'} size={14} />
+                                  <span>{expandedNearbySpotId === spot.id ? '周辺検索を閉じる' : '周辺のグルメ・宿を探す'}</span>
+                                </button>
                               </div>
+
+                              {/* 周辺グルメ・宿インライン検索パネル */}
+                              {expandedNearbySpotId === spot.id && (
+                                <div className="spot-nearby-panel">
+                                  <div className="nearby-panel-head">
+                                    <span className="nearby-panel-title">
+                                      📍 <strong>{spot.name}</strong> 周辺のスポット（ワンタップでしおりに追加！）
+                                    </span>
+                                    <div className="nearby-type-tabs">
+                                      <button
+                                        type="button"
+                                        className={`nearby-tab-btn ${nearbyTab === 'gourmet' ? 'is-active' : ''}`}
+                                        onClick={() => setNearbyTab('gourmet')}
+                                      >
+                                        🍴 グルメ・カフェ ({(nearbyCache[spot.id]?.gourmets || []).length})
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={`nearby-tab-btn ${nearbyTab === 'hotel' ? 'is-active' : ''}`}
+                                        onClick={() => setNearbyTab('hotel')}
+                                      >
+                                        🏨 宿・ホテル ({(nearbyCache[spot.id]?.hotels || []).length})
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {nearbyLoading ? (
+                                    <div className="nearby-loading-box">
+                                      <span className="nearby-loading-spinner" />
+                                      <span>周辺のスポット・お店を検索中... 🔍</span>
+                                    </div>
+                                  ) : nearbyTab === 'gourmet' ? (
+                                    (nearbyCache[spot.id]?.gourmets || []).length > 0 ? (
+                                      <div className="nearby-results-grid">
+                                        {(nearbyCache[spot.id]?.gourmets || []).map((g) => (
+                                          <div key={g.id || g.name} className="nearby-item-card">
+                                            <div className="nearby-card-media">
+                                              {g.photoUrl ? (
+                                                <img src={g.photoUrl} alt={g.name} className="nearby-item-img" />
+                                              ) : (
+                                                <div className="nearby-img-fallback">🍴</div>
+                                              )}
+                                              <span className="nearby-genre-badge">
+                                                {g.genre?.name || g.genre || 'グルメ'}
+                                              </span>
+                                            </div>
+                                            <div className="nearby-card-info">
+                                              <h5 className="nearby-item-name">{g.name}</h5>
+                                              {g.budget?.name && (
+                                                <span className="nearby-item-budget">💰 {g.budget.name}</span>
+                                              )}
+                                              {g.catch && (
+                                                <p className="nearby-item-desc">{g.catch}</p>
+                                              )}
+                                              <div className="nearby-card-bottom-actions">
+                                                {g.urls?.pc && (
+                                                  <a
+                                                    href={g.urls.pc}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="nearby-item-link"
+                                                  >
+                                                    詳細 ↗
+                                                  </a>
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-sage btn-xs nearby-add-btn"
+                                                  onClick={() => handleAddNearbyToItinerary(spot, g, 'gourmet')}
+                                                >
+                                                  <Icon name="plus" size={12} /> しおりに追加
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="nearby-empty-box">
+                                        <p>周辺のグルメ情報が見つかりませんでした。</p>
+                                        <span className="nearby-empty-hint">（スポット名をより一般的な駅名・地名にすると見つかりやすくなります）</span>
+                                      </div>
+                                    )
+                                  ) : (
+                                    (nearbyCache[spot.id]?.hotels || []).length > 0 ? (
+                                      <div className="nearby-results-grid">
+                                        {(nearbyCache[spot.id]?.hotels || []).map((h) => (
+                                          <div key={h.id || h.name} className="nearby-item-card">
+                                            <div className="nearby-card-media">
+                                              {h.imageUrl ? (
+                                                <img src={h.imageUrl} alt={h.name} className="nearby-item-img" />
+                                              ) : (
+                                                <div className="nearby-img-fallback">🏨</div>
+                                              )}
+                                              <span className="nearby-genre-badge">宿泊</span>
+                                            </div>
+                                            <div className="nearby-card-info">
+                                              <h5 className="nearby-item-name">{h.name}</h5>
+                                              {h.caption && (
+                                                <p className="nearby-item-desc">{h.caption}</p>
+                                              )}
+                                              <div className="nearby-card-bottom-actions">
+                                                {h.url && (
+                                                  <a
+                                                    href={h.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="nearby-item-link"
+                                                  >
+                                                    楽天トラベル ↗
+                                                  </a>
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-sage btn-xs nearby-add-btn"
+                                                  onClick={() => handleAddNearbyToItinerary(spot, h, 'hotel')}
+                                                >
+                                                  <Icon name="plus" size={12} /> 宿をしおりに追加
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="nearby-empty-box">
+                                        <p>周辺の宿泊施設が見つかりませんでした。</p>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </React.Fragment>

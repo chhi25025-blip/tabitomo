@@ -5,13 +5,15 @@ import ShioriTab from './components/ShioriTab';
 import MochimonoTab from './components/MochimonoTab';
 import WarikanTab from './components/WarikanTab';
 import GuideModal from './components/GuideModal';
+import ErrorBoundary from './components/ErrorBoundary';
 import {
   INITIAL_TRIPS,
   INITIAL_MY_ITEMS,
   INITIAL_WARIKAN_MEMBERS,
   INITIAL_WARIKAN_PAYMENTS,
+  generateFullPackingList,
 } from './travelData';
-import { usePersistentState, uid, defaultTripDate } from './utils';
+import { usePersistentState, uid, defaultTripDate, calcEndDateFromStayDays } from './utils';
 
 const TAB_DEFS = [
   { id: 'search', label: 'たびさがし', longLabel: 'たびさがし', icon: 'compass', desc: '行先や寄り道カフェを探す' },
@@ -99,10 +101,12 @@ export default function App() {
       return;
     }
     const newTripId = uid('trip');
+    const defStart = defaultTripDate();
     const newTrip = {
       id: newTripId,
       title: `新しい旅行 ${trips.length + 1}`,
-      date: defaultTripDate(),
+      date: defStart,
+      endDate: calcEndDateFromStayDays(defStart, 2),
       stayDays: 2, // デフォルト1泊2日
       startPoint: {
         name: '自宅・出発地',
@@ -162,6 +166,94 @@ export default function App() {
     if (!currentTrip) return;
     const nextItinerary = [...(currentTrip.itinerary || []), spotItem];
     handleUpdateItinerary(currentTrip.id, nextItinerary);
+  };
+
+  // AIプランの一括インポート（旅程 ＆ 持ち物）
+  const handleImportAiPlan = (tripId, { itinerary, packingList, importMode, updateStayDays, newDaysCount, newTitle, newDestination, newDate, newEndDate }) => {
+    setTrips((prev) =>
+      prev.map((t) => {
+        if (t.id !== tripId) return t;
+
+        // 旅程の結合または置換
+        let nextItinerary = t.itinerary || [];
+        if (importMode === 'replace') {
+          nextItinerary = itinerary || [];
+        } else {
+          nextItinerary = [...nextItinerary, ...(itinerary || [])];
+        }
+
+        // 持ち物の重複チェック & マージ
+        const currentCustom = Array.isArray(t.customPacking) ? t.customPacking : [];
+        const basePacking = generateFullPackingList(t);
+        const existingNames = new Set(
+          [...basePacking, ...currentCustom].map((i) => (i?.name || '').replace(/\s+/g, '').toLowerCase())
+        );
+
+        const additions = [];
+        (packingList || []).forEach((p) => {
+          if (!p || !p.name) return;
+          const norm = p.name.replace(/\s+/g, '').toLowerCase();
+          if (!existingNames.has(norm)) {
+            existingNames.add(norm);
+            additions.push(p);
+          }
+        });
+
+        const nextCustomPacking = [...currentCustom, ...additions];
+
+        // ユーザーが明示的に取り込んだアイテムは除外リストから解除
+        const nextExcluded = { ...(t.excludedPacking || {}) };
+        (packingList || []).forEach((p) => {
+          if (p && p.name) {
+            delete nextExcluded[p.name];
+          }
+        });
+
+        const nextTitle =
+          newTitle ||
+          (t.title.startsWith('新しい旅行') && newDestination ? `${newDestination}旅行` : t.title);
+
+        return {
+          ...t,
+          title: nextTitle,
+          mainSpot: newDestination || t.mainSpot,
+          date: newDate || t.date,
+          endDate: newEndDate || t.endDate,
+          stayDays: updateStayDays && newDaysCount ? Math.max(t.stayDays || 2, newDaysCount) : t.stayDays,
+          itinerary: nextItinerary,
+          customPacking: nextCustomPacking,
+          excludedPacking: nextExcluded,
+        };
+      })
+    );
+
+    showToast(`AIプランを取り込みました（スポット${itinerary?.length || 0}件、持ち物${packingList?.length || 0}件）✨`);
+  };
+
+  // カスタム持ち物（AI提案等）の追加
+  const handleAddCustomPacking = (tripId, newItems) => {
+    setTrips((prev) =>
+      prev.map((t) => {
+        if (t.id !== tripId) return t;
+        const currentCustom = Array.isArray(t.customPacking) ? t.customPacking : [];
+        const nextCustom = [...currentCustom, ...(newItems || [])];
+
+        const nextExcluded = { ...(t.excludedPacking || {}) };
+        (newItems || []).forEach((item) => {
+          if (item && item.name) {
+            delete nextExcluded[item.name];
+          }
+        });
+
+        return {
+          ...t,
+          customPacking: nextCustom,
+          excludedPacking: nextExcluded,
+        };
+      })
+    );
+
+    showToast(`持ち物リストに${newItems?.length || 0}点追加しました 🎒`);
   };
 
   /* ---------------- もちもの操作 ---------------- */
@@ -329,71 +421,75 @@ export default function App() {
       {/* ===== メインコンテンツ ===== */}
       <main className="main-content-area">
         <div className="page-max-container">
-          {/* 1. たびさがし */}
-          <div
-            className="tab-content-panel"
-            style={{ display: activeTab === 'search' ? 'block' : 'none' }}
-          >
-            <SearchTab
-              currentTrip={currentTrip}
-              targetDay={targetDayForAdd}
-              onSetTargetDay={setTargetDayForAdd}
-              onAddSpotToTrip={handleAddSpotToCurrentTrip}
-              onSwitchToShioriTab={() => setActiveTab('shiori')}
-            />
-          </div>
+          <ErrorBoundary>
+            {/* 1. たびさがし */}
+            <div
+              className="tab-content-panel"
+              style={{ display: activeTab === 'search' ? 'block' : 'none' }}
+            >
+              <SearchTab
+                currentTrip={currentTrip}
+                targetDay={targetDayForAdd}
+                onSetTargetDay={setTargetDayForAdd}
+                onAddSpotToTrip={handleAddSpotToCurrentTrip}
+                onSwitchToShioriTab={() => setActiveTab('shiori')}
+              />
+            </div>
 
-          {/* 2. しおり（全体ルートマップ＆タイムライン） */}
-          <div
-            className="tab-content-panel"
-            style={{ display: activeTab === 'shiori' ? 'block' : 'none' }}
-          >
-            <ShioriTab
-              trips={safeTrips}
-              activeTripId={activeTripId}
-              onSelectTrip={(id) => setActiveTripId(id)}
-              onCreateTrip={handleCreateTrip}
-              onDeleteTrip={handleDeleteTrip}
-              onUpdateTripMeta={handleUpdateTripMeta}
-              onUpdateItinerary={handleUpdateItinerary}
-              onSwitchToSearchTab={handleSwitchToSearchTab}
-            />
-          </div>
+            {/* 2. しおり（全体ルートマップ＆タイムライン） */}
+            <div
+              className="tab-content-panel"
+              style={{ display: activeTab === 'shiori' ? 'block' : 'none' }}
+            >
+              <ShioriTab
+                trips={safeTrips}
+                activeTripId={activeTripId}
+                onSelectTrip={(id) => setActiveTripId(id)}
+                onCreateTrip={handleCreateTrip}
+                onDeleteTrip={handleDeleteTrip}
+                onUpdateTripMeta={handleUpdateTripMeta}
+                onUpdateItinerary={handleUpdateItinerary}
+                onSwitchToSearchTab={handleSwitchToSearchTab}
+                onImportAiPlan={handleImportAiPlan}
+              />
+            </div>
 
-          {/* 3. もちもの */}
-          <div
-            className="tab-content-panel"
-            style={{ display: activeTab === 'mochimono' ? 'block' : 'none' }}
-          >
-            <MochimonoTab
-              trips={safeTrips}
-              activeTripId={activeTripId}
-              onSelectTrip={(id) => setActiveTripId(id)}
-              currentTrip={currentTrip}
-              myItems={myItems}
-              onToggleCheckPacking={handleToggleCheckPacking}
-              onToggleExcludePacking={handleToggleExcludePacking}
-              onAddMyItem={handleAddMyItem}
-              onToggleMyItemOwned={handleToggleMyItemOwned}
-              onDeleteMyItem={handleDeleteMyItem}
-              onQuickAddMissingToMyItems={handleQuickAddMissingToMyItems}
-            />
-          </div>
+            {/* 3. もちもの */}
+            <div
+              className="tab-content-panel"
+              style={{ display: activeTab === 'mochimono' ? 'block' : 'none' }}
+            >
+              <MochimonoTab
+                trips={safeTrips}
+                activeTripId={activeTripId}
+                onSelectTrip={(id) => setActiveTripId(id)}
+                currentTrip={currentTrip}
+                myItems={myItems}
+                onToggleCheckPacking={handleToggleCheckPacking}
+                onToggleExcludePacking={handleToggleExcludePacking}
+                onAddMyItem={handleAddMyItem}
+                onToggleMyItemOwned={handleToggleMyItemOwned}
+                onDeleteMyItem={handleDeleteMyItem}
+                onQuickAddMissingToMyItems={handleQuickAddMissingToMyItems}
+                onAddCustomPacking={handleAddCustomPacking}
+              />
+            </div>
 
-          {/* 4. わりかん（単体利用OK） */}
-          <div
-            className="tab-content-panel"
-            style={{ display: activeTab === 'warikan' ? 'block' : 'none' }}
-          >
-            <WarikanTab
-              members={members}
-              expenses={expenses}
-              onAddMember={handleAddMember}
-              onRemoveMember={handleRemoveMember}
-              onAddExpense={handleAddExpense}
-              onDeleteExpense={handleDeleteExpense}
-            />
-          </div>
+            {/* 4. わりかん（単体利用OK） */}
+            <div
+              className="tab-content-panel"
+              style={{ display: activeTab === 'warikan' ? 'block' : 'none' }}
+            >
+              <WarikanTab
+                members={members}
+                expenses={expenses}
+                onAddMember={handleAddMember}
+                onRemoveMember={handleRemoveMember}
+                onAddExpense={handleAddExpense}
+                onDeleteExpense={handleDeleteExpense}
+              />
+            </div>
+          </ErrorBoundary>
         </div>
       </main>
 

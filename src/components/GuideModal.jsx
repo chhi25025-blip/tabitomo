@@ -49,8 +49,8 @@ export default function GuideModal({ isOpen, onClose }) {
             <div className="step-guide-badge">Step 2</div>
             <div className="step-guide-icon-box">📖</div>
             <div className="step-guide-info">
-              <strong className="step-guide-title">しおりに追加</strong>
-              <p className="step-guide-desc">日程や周辺の寄り道スポット（カフェ・宿）をカンタン整理</p>
+              <strong className="step-guide-title">しおりに追加（AI取り込みもOK）</strong>
+              <p className="step-guide-desc">ChatGPTやGeminiのプランを一括コピペするか、手動で寄り道カフェを追加！</p>
             </div>
           </div>
           <div className="step-guide-arrow">➔</div>

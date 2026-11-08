@@ -933,7 +933,8 @@ export function diagnoseTripWeatherAndBag(trip) {
   // 2. 旅程全体の全スポットを総合スキャン（メイン固定概念を完全撤廃！）
   const itinerary = trip?.itinerary || [];
 
-  const isMountainText = (t) => /山|岳|高原|美ヶ原|白馬|富士|アルプス|標高|ハイキング|トレッキング|登山/.test(t);
+  const isMountainText = (t) =>
+    /(?:ハイキング|トレッキング|登山|山登り|高原|アルプス|美ヶ原|白馬|室堂|千畳敷|富士山|連峰|山小屋|標高(?:\d+|高い))/i.test(t);
   const isOnsenText = (t) => /温泉|湯|露天|足湯|サウナ|スパ/.test(t);
   const isBeachText = (t) => /海|浜|ビーチ|島|江の島|湘南|海岸|川|ラフティング|カヤック|シュノーケル|プール/.test(t);
   const isShrineText = (t) => /神社|寺|大社|神宮|城|参拝|大仏|観音/.test(t);
@@ -1285,8 +1286,10 @@ export function generateFullPackingList(trip) {
     });
   }
 
-  // 寒冷地・冬・高山での必須防寒
-  if (diag.lowTemp <= 8 || diag.season === 'winter' || diag.isHighland) {
+  // 寒冷地・冬・本格的な冷え込みでの必須防寒（最低気温10℃以下、または冬期で冷え込む場合）
+  // ※ 高山であっても夏期（8月・最低19℃等）にはヒートテックは出さず、実際の気温基準で厳密に判定！
+  const isColdWeather = diag.lowTemp <= 10 || (diag.season === 'winter' && diag.lowTemp <= 12);
+  if (isColdWeather) {
     const coldSpotName = diag.coldestDay?.areaName || '現地';
     addItem({
       name: '防寒シェル',
@@ -1297,7 +1300,7 @@ export function generateFullPackingList(trip) {
     addItem({
       name: 'ヒートテック',
       priority: 'must',
-      reason: '朝晩や屋外散策での底冷えを防止',
+      reason: `朝晩の冷え込み（最低${diag.lowTemp}℃）での底冷えを防止`,
       reasonTag: '保温インナー',
     });
   }
@@ -1471,6 +1474,22 @@ export function generateFullPackingList(trip) {
     reason: 'お気に入りの歯ブラシやスキンケア用品',
     reasonTag: '宿泊リラックス',
   });
+
+  // ==========================================
+  // 3. 🤖 AI提案・カスタム追加された持ち物のマージ
+  // ==========================================
+  if (Array.isArray(trip?.customPacking)) {
+    trip.customPacking.forEach((cItem) => {
+      if (cItem && cItem.name) {
+        addItem({
+          name: cItem.name,
+          priority: cItem.priority === 'must' ? 'must' : 'nice',
+          reason: cItem.reason || (cItem.source === 'ai' ? 'AI提案の持ち物' : '追加アイテム'),
+          reasonTag: cItem.reasonTag || (cItem.priority === 'must' ? 'AI必須' : 'AIおすすめ'),
+        });
+      }
+    });
+  }
 
   return items;
 }

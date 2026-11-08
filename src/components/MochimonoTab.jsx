@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import Icon from './Icon';
+import AiPackingImportModal from './AiPackingImportModal';
 import {
   GEAR_CATEGORIES,
   gearCategoryLabel,
@@ -20,10 +21,12 @@ export default function MochimonoTab({
   onToggleMyItemOwned,
   onDeleteMyItem,
   onQuickAddMissingToMyItems,
+  onAddCustomPacking,
 }) {
   const [subTab, setSubTab] = useState('checklist'); // 'checklist' | 'myitems'
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'must' | 'nice' | 'missing'
   const [showExcluded, setShowExcluded] = useState(false);
+  const [showAiPackingModal, setShowAiPackingModal] = useState(false);
 
   // お天気表示で選択中の日程（'all' または 1, 2, 3...）
   const [selectedWeatherDay, setSelectedWeatherDay] = useState('all');
@@ -436,36 +439,47 @@ export default function MochimonoTab({
               </div>
             </div>
 
-            {/* ③ 表示フィルタータブ */}
-            <div className="packing-filter-pills">
+            {/* ③ 表示フィルタータブ & AI相談ボタン */}
+            <div className="packing-filter-toolbar">
+              <div className="packing-filter-pills">
+                <button
+                  type="button"
+                  className={`filter-pill-btn ${filterMode === 'all' ? 'is-active' : ''}`}
+                  onClick={() => setFilterMode('all')}
+                >
+                  すべて表示 ({totalCount})
+                </button>
+                <button
+                  type="button"
+                  className={`filter-pill-btn must-pill ${filterMode === 'must' ? 'is-active' : ''}`}
+                  onClick={() => setFilterMode('must')}
+                >
+                  🔥 必須のみ ({mustItems.length})
+                  {missingMustItems.length > 0 && <span className="pill-badge-num">{missingMustItems.length}</span>}
+                </button>
+                <button
+                  type="button"
+                  className={`filter-pill-btn nice-pill ${filterMode === 'nice' ? 'is-active' : ''}`}
+                  onClick={() => setFilterMode('nice')}
+                >
+                  ✨ あると安心のみ ({niceItems.length})
+                </button>
+                <button
+                  type="button"
+                  className={`filter-pill-btn warn-pill ${filterMode === 'missing' ? 'is-active' : ''}`}
+                  onClick={() => setFilterMode('missing')}
+                >
+                  ⚠️ 未所持・不足のみ ({missingMustItems.length + missingNiceItems.length})
+                </button>
+              </div>
+
               <button
                 type="button"
-                className={`filter-pill-btn ${filterMode === 'all' ? 'is-active' : ''}`}
-                onClick={() => setFilterMode('all')}
+                className="btn btn-ai-sparkle btn-sm packing-ai-btn"
+                onClick={() => setShowAiPackingModal(true)}
+                title="AIにこの旅行に必要な持ち物を相談して追加"
               >
-                すべて表示 ({totalCount})
-              </button>
-              <button
-                type="button"
-                className={`filter-pill-btn must-pill ${filterMode === 'must' ? 'is-active' : ''}`}
-                onClick={() => setFilterMode('must')}
-              >
-                🔥 必須のみ ({mustItems.length})
-                {missingMustItems.length > 0 && <span className="pill-badge-num">{missingMustItems.length}</span>}
-              </button>
-              <button
-                type="button"
-                className={`filter-pill-btn nice-pill ${filterMode === 'nice' ? 'is-active' : ''}`}
-                onClick={() => setFilterMode('nice')}
-              >
-                ✨ あると安心のみ ({niceItems.length})
-              </button>
-              <button
-                type="button"
-                className={`filter-pill-btn warn-pill ${filterMode === 'missing' ? 'is-active' : ''}`}
-                onClick={() => setFilterMode('missing')}
-              >
-                ⚠️ 未所持・不足のみ ({missingMustItems.length + missingNiceItems.length})
+                <Icon name="bot" size={14} /> AIに持ち物を相談
               </button>
             </div>
           </section>
@@ -765,6 +779,19 @@ export default function MochimonoTab({
           </div>
         </div>
       )}
+
+      {/* AI持ち物相談・追加モーダル */}
+      <AiPackingImportModal
+        isOpen={showAiPackingModal}
+        onClose={() => setShowAiPackingModal(false)}
+        currentTrip={selectedTrip}
+        existingItems={fullPackingList}
+        onAddPackingItems={(newItems) => {
+          if (onAddCustomPacking) {
+            onAddCustomPacking(selectedTrip.id, newItems);
+          }
+        }}
+      />
     </div>
   );
 }
