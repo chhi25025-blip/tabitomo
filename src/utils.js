@@ -257,3 +257,65 @@ export function computeSettlement(members, expenses) {
   }
   return { balances: bal, paid, owe, transfers, total };
 }
+
+/**
+ * 旅行のしおりをLINEやSNSで友達と共有するためのテキスト整形関数
+ */
+export function formatTripForLineShare(trip) {
+  if (!trip) return '';
+  const lines = [];
+  lines.push(`🎒【旅のしおり】${trip.title || '旅行計画'}`);
+
+  if (trip.date) {
+    const endStr = trip.endDate ? ` 〜 ${trip.endDate}` : '';
+    const daysLabel = formatStayDaysLabel(trip.stayDays || 1);
+    lines.push(`📅 日程: ${trip.date}${endStr} (${daysLabel})`);
+  }
+  if (trip.memo) {
+    lines.push(`💡 合言葉・テーマ: ${trip.memo}`);
+  }
+  lines.push('────────────────');
+
+  const itinerary = trip.itinerary || [];
+  const stayDays = Math.max(1, trip.stayDays || 1);
+
+  for (let day = 1; day <= stayDays; day++) {
+    lines.push(`\n【${day}日目】`);
+    if (day === 1 && trip.startPoint?.name) {
+      lines.push(`🏠 ${trip.startPoint.time || '08:30'} 出発：${trip.startPoint.name}`);
+      if (trip.startPoint.memo) {
+        lines.push(`   └ 📝 ${trip.startPoint.memo}`);
+      }
+    }
+
+    const daySpots = itinerary.filter((s) => (s.day || 1) === day);
+    if (daySpots.length === 0 && day !== 1) {
+      lines.push('（自由行動・予定なし）');
+    }
+
+    daySpots.forEach((spot, idx) => {
+      // 直前からの移動情報
+      if (spot.transitMode && spot.transitMin) {
+        const modeDef = TRANSIT_MODES.find((m) => m.id === spot.transitMode) || { icon: '🚗', label: '車' };
+        const h = Math.floor(Number(spot.transitMin) / 60);
+        const m = Number(spot.transitMin) % 60;
+        const durStr = h > 0 ? `${h}時間${m > 0 ? `${m}分` : ''}` : `${m}分`;
+        lines.push(`   ↓ (${modeDef.icon} ${modeDef.label} 約${durStr})`);
+      }
+
+      const timeStr = spot.time ? `${spot.time} ` : '';
+      const stayStr = spot.stayMin ? `（滞在 約${spot.stayMin}分）` : '';
+      lines.push(`📍 ${timeStr}${spot.name} ${stayStr}`);
+      if (spot.memo) {
+        lines.push(`   └ 📝 ${spot.memo}`);
+      }
+      if (spot.googleMapsUrl) {
+        lines.push(`   └ 🗺️ ${spot.googleMapsUrl}`);
+      }
+    });
+  }
+
+  lines.push('\n────────────────');
+  lines.push('✨ タビトモで作成した旅のしおり');
+  return lines.join('\n');
+}

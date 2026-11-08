@@ -167,28 +167,39 @@ export default function MochimonoTab({
   return (
     <div className="mochimono-tab-page">
       {/* 上部サブタブ切り替え */}
-      <div className="sub-segmented-control">
+      <div className="sub-segmented-control" role="tablist" aria-label="持ち物タブ切り替え">
         <button
           type="button"
+          role="tab"
+          aria-selected={subTab === 'checklist'}
           className={`sub-segment-btn ${subTab === 'checklist' ? 'is-active' : ''}`}
           onClick={() => setSubTab('checklist')}
         >
-          <Icon name="check" size={16} />
-          <span>パッキング照合・リスト</span>
+          <Icon name="check" size={16} className="sub-segment-icon" />
+          <span className="sub-segment-label-group">
+            <span className="segment-text-main">パッキング照合</span>
+            <span className="segment-text-sub">リスト</span>
+          </span>
           {missingMustItems.length > 0 && (
             <span className="badge-count-warning" title="必須アイテムに不足があります">
-              必須不足 {missingMustItems.length}
+              <span className="badge-warning-text">必須不足</span>
+              <span className="badge-warning-count">{missingMustItems.length}</span>
             </span>
           )}
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={subTab === 'myitems'}
           className={`sub-segment-btn ${subTab === 'myitems' ? 'is-active' : ''}`}
           onClick={() => setSubTab('myitems')}
         >
-          <Icon name="backpack" size={16} />
-          <span>マイアイテム管理 ({myItems.length})</span>
+          <Icon name="backpack" size={16} className="sub-segment-icon" />
+          <span className="sub-segment-label-group">
+            <span className="segment-text-main">マイアイテム管理</span>
+            <span className="segment-text-sub">({myItems.length})</span>
+          </span>
         </button>
       </div>
 
@@ -407,10 +418,33 @@ export default function MochimonoTab({
             {/* 進捗ゲージ */}
             <div className="packing-progress-bar-wrap">
               <div
-                className="packing-progress-bar-fill"
+                className={`packing-progress-bar-fill ${percent === 100 ? 'is-complete' : ''}`}
                 style={{ width: `${percent}%` }}
               />
             </div>
+
+            {/* 🎉 達成感フィードバックバナー（100%全完了時 または 必須全チェック完了時） */}
+            {percent === 100 && totalCount > 0 ? (
+              <div className="packing-celebration-banner is-all-complete">
+                <div className="celebration-icon-box">🎉</div>
+                <div className="celebration-body">
+                  <strong className="celebration-title">荷造りパーフェクト！忘れ物なしで出発できます！</strong>
+                  <p className="celebration-desc">
+                    すべての持ち物のパッキングが完了しました。安心してお出かけください🎒✨
+                  </p>
+                </div>
+              </div>
+            ) : mustItems.length > 0 && mustItems.every((i) => i.isChecked) ? (
+              <div className="packing-celebration-banner is-must-complete">
+                <div className="celebration-icon-box">✨</div>
+                <div className="celebration-body">
+                  <strong className="celebration-title">必須アイテムは準備完了！出発OKです</strong>
+                  <p className="celebration-desc">
+                    旅に必要なマスト品はすべて揃いました！荷物に余裕があれば「あると安心」もチェックしておきましょう👍
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             {/* 不足アラートブロック */}
             <div className="summary-alert-strip">

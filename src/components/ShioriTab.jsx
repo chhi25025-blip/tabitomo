@@ -15,6 +15,7 @@ import {
   formatStayDaysLabel,
   formatDateRange,
   defaultTripDate,
+  formatTripForLineShare,
 } from '../utils';
 import { TRIP_STYLES, styleInfo } from '../travelData';
 
@@ -54,6 +55,39 @@ export default function ShioriTab({
   const [showAddSpotModal, setShowAddSpotModal] = useState(false);
   const [showAiImportPanel, setShowAiImportPanel] = useState(false);
   const aiPanelRef = useRef(null);
+
+  // しおりの表示モード（'view': 見るモード / 'edit': 編集モード）
+  const [shioriMode, setShioriMode] = useState('view');
+
+  // LINE共有テキストのコピー完了ステート
+  const [copiedShareText, setCopiedShareText] = useState(false);
+
+  // 並べ替えや自動整列のフィードバックトースト通知
+  const [reorderFeedbackMsg, setReorderFeedbackMsg] = useState('');
+
+  // LINE共有用テキストコピーハンドラ
+  const handleCopyLineShare = async () => {
+    const text = formatTripForLineShare(currentTrip);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedShareText(true);
+      setTimeout(() => setCopiedShareText(false), 3500);
+    } catch (err) {
+      console.warn('Copy failed:', err);
+    }
+  };
 
   // AI作成パネルへの自動ワープ（スムーズスクロール）
   const handleOpenAiPanel = () => {
@@ -240,10 +274,42 @@ export default function ShioriTab({
     if (targetPos < 0 || targetPos >= sameDayIndices.length) return;
 
     const targetIdx = sameDayIndices[targetPos];
-    const temp = list[spotIdx];
+    const movingSpot = list[spotIdx];
     list[spotIdx] = list[targetIdx];
-    list[targetIdx] = temp;
+    list[targetIdx] = movingSpot;
     onUpdateItinerary(currentTrip.id, list);
+
+    const dirText = direction === -1 ? '上へ' : '下へ';
+    setReorderFeedbackMsg(`✨「${movingSpot.name}」を${dirText}移動しました`);
+    setTimeout(() => setReorderFeedbackMsg(''), 2500);
+  };
+
+  // その日の各スポットの到着時刻を前の出発＋移動時間から自動整列
+  const handleAutoAlignDayTimes = (targetDay) => {
+    const list = [...(currentTrip?.itinerary || [])];
+    const isDay1 = targetDay === 1;
+    let currentDep = isDay1
+      ? (currentTrip?.startPoint?.time || '08:30')
+      : '09:00';
+
+    let daySpotsCount = 0;
+    const updated = list.map((s) => {
+      if ((s.day || 1) !== targetDay) return s;
+      daySpotsCount++;
+      const transit = Number(s.transitMin) || (isDay1 && daySpotsCount === 1 ? 30 : 20);
+      const stay = Number(s.stayMin) || 45;
+      const arrival = addMinutesToTimeString(currentDep, transit);
+      currentDep = addMinutesToTimeString(arrival, stay);
+      return {
+        ...s,
+        time: arrival,
+      };
+    });
+
+    if (daySpotsCount === 0) return;
+    onUpdateItinerary(currentTrip.id, updated);
+    setReorderFeedbackMsg(`⏰ Day ${targetDay} の時間を順番に合わせて自動整列しました！`);
+    setTimeout(() => setReorderFeedbackMsg(''), 3000);
   };
 
   // スポットの削除
@@ -494,16 +560,20 @@ export default function ShioriTab({
       {/* 旅行切り替えセレクター ＆ 新規作成バー */}
       <section className="card card-trip-switcher">
         <div className="switcher-top">
-          <div className="switcher-title">
-            <Icon name="book" size={18} />
-            <span>旅行のしおり</span>
-            <span className="badge badge-sage sm">最大5件（現在: {trips.length}/5）</span>
+          <div className="switcher-left-block">
+            <div className="switcher-main-heading">
+              <Icon name="book" size={18} />
+              <span className="switcher-title-text">旅行のしおり</span>
+            </div>
+            <span className="badge badge-sage sm switcher-badge">
+              最大5件（現在: {trips.length}/5）
+            </span>
           </div>
 
           {trips.length < 5 && (
             <button
               type="button"
-              className="btn btn-terracotta btn-sm"
+              className="btn btn-terracotta btn-sm switcher-add-btn"
               onClick={onCreateTrip}
             >
               <Icon name="plus" size={14} /> 新しい旅行を作成
@@ -531,29 +601,23 @@ export default function ShioriTab({
       <section className="card trip-header-card">
         {!isEditingMeta ? (
           <div className="trip-info-view">
-            <div className="trip-info-head">
-              <div className="trip-info-main">
-                <span className="trip-style-tag">
-                  {styleMeta.icon} {styleMeta.label}
-                </span>
-                <h2 className="trip-title-large">{currentTrip?.title || '旅のしおり'}</h2>
-                <p className="trip-date-text">
-                  <Icon name="calendar" size={14} />{' '}
-                  {formatDateRange(
-                    currentTrip?.date,
-                    currentTrip?.endDate ||
-                      calcEndDateFromStayDays(currentTrip?.date, currentTrip?.stayDays || 1)
-                  )}
-                  <span className="trip-stay-badge-pill">
-                    {formatStayDaysLabel(currentTrip?.stayDays || 1)}
-                  </span>
-                </p>
-                {currentTrip?.memo && (
-                  <p className="trip-memo-text">{currentTrip.memo}</p>
-                )}
-              </div>
+            {/* 上段：スタイルタグ（左）とアクションボタン（右） */}
+            <div className="trip-info-top-bar">
+              <span className="trip-style-tag">
+                {styleMeta.icon} {styleMeta.label}
+              </span>
 
               <div className="trip-meta-actions">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${copiedShareText ? 'btn-sage' : 'btn-outline-subtle'} line-share-head-btn`}
+                  onClick={handleCopyLineShare}
+                  title="LINE等で友達に送れるテキスト形式でしおりをコピー"
+                >
+                  <Icon name={copiedShareText ? 'check' : 'copy'} size={14} />
+                  <span>{copiedShareText ? 'コピー完了！' : 'LINEで共有'}</span>
+                </button>
+
                 <button
                   type="button"
                   className="btn btn-outline btn-sm"
@@ -585,6 +649,27 @@ export default function ShioriTab({
                   </button>
                 )}
               </div>
+            </div>
+
+            {/* 下段：旅行タイトル・日程・メモ（カード全幅100%を使ってゆったり表示！） */}
+            <div className="trip-info-body">
+              <h2 className="trip-title-large">{currentTrip?.title || '旅のしおり'}</h2>
+              <p className="trip-date-text">
+                <Icon name="calendar" size={14} />{' '}
+                <span className="trip-date-range-str">
+                  {formatDateRange(
+                    currentTrip?.date,
+                    currentTrip?.endDate ||
+                      calcEndDateFromStayDays(currentTrip?.date, currentTrip?.stayDays || 1)
+                  )}
+                </span>
+                <span className="trip-stay-badge-pill">
+                  {formatStayDaysLabel(currentTrip?.stayDays || 1)}
+                </span>
+              </p>
+              {currentTrip?.memo && (
+                <p className="trip-memo-text">{currentTrip.memo}</p>
+              )}
             </div>
           </div>
         ) : (
@@ -704,7 +789,7 @@ export default function ShioriTab({
 
       {/* タイムライン形式のしおり */}
       <section className="card timeline-section-card">
-        <div className="card-header-clean">
+        <div className="card-header-clean shiori-timeline-header">
           <div className="header-icon-title">
             <Icon name="clock" size={18} />
             <div>
@@ -715,40 +800,95 @@ export default function ShioriTab({
             </div>
           </div>
 
-          <div className="timeline-top-btns">
+          {/* モード切り替えピルスイッチ（しおりを見る ⇔ 旅程を編集） */}
+          <div className="shiori-mode-switch-pill" role="tablist" aria-label="しおり表示モード切替">
             <button
               type="button"
-              className="btn btn-sage-soft btn-sm"
-              onClick={() => onSwitchToSearchTab(selectedDayTab === 'all' ? 1 : Number(selectedDayTab))}
+              className={`mode-switch-btn ${shioriMode === 'view' ? 'is-active' : ''}`}
+              onClick={() => setShioriMode('view')}
+              role="tab"
+              aria-selected={shioriMode === 'view'}
             >
-              <Icon name="search" size={14} /> たびさがしから追加
+              <Icon name="eye" size={14} />
+              <span className="mode-btn-text">しおりを見る</span>
             </button>
             <button
               type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => {
-                setCustomSpotDay(selectedDayTab === 'all' ? 1 : Number(selectedDayTab));
-                setShowAddSpotModal(true);
-              }}
+              className={`mode-switch-btn ${shioriMode === 'edit' ? 'is-active' : ''}`}
+              onClick={() => setShioriMode('edit')}
+              role="tab"
+              aria-selected={shioriMode === 'edit'}
             >
-              <Icon name="plus" size={14} /> 直接追加
-            </button>
-            <button
-              type="button"
-              className={`btn ${showAiImportPanel ? 'btn-sage' : 'btn-outline-subtle'} btn-sm`}
-              onClick={() => {
-                if (showAiImportPanel) {
-                  setShowAiImportPanel(false);
-                } else {
-                  handleOpenAiPanel();
-                }
-              }}
-              title="ChatGPTやGeminiのプランをコピペで自動取り込み"
-            >
-              <Icon name="bot" size={14} /> {showAiImportPanel ? 'AI作成を閉じる' : '🤖 AIでおまかせ作成'}
+              <Icon name="edit" size={14} />
+              <span className="mode-btn-text">旅程を編集</span>
             </button>
           </div>
         </div>
+
+        {/* コピー完了・並び替えフィードバックトースト通知 */}
+        {(copiedShareText || reorderFeedbackMsg) && (
+          <div className="shiori-toast-banner" role="status" aria-live="polite">
+            <span className="toast-icon">{copiedShareText ? '📋' : '✨'}</span>
+            <span className="toast-msg">
+              {copiedShareText
+                ? 'LINE用の旅のしおりをコピーしました！トーク画面にそのまま貼り付けて友達と共有できます🎉'
+                : reorderFeedbackMsg}
+            </span>
+          </div>
+        )}
+
+        {/* 編集モード時のみ表示する上部追加アクションバー */}
+        {shioriMode === 'edit' && (
+          <div className="timeline-edit-action-banner">
+            <div className="edit-banner-left">
+              <span className="edit-mode-badge">✏️ 編集モード</span>
+              <span className="edit-mode-hint">時間や滞在分、メモの変更・並べ替えができます</span>
+            </div>
+            <div className="timeline-top-btns">
+              <button
+                type="button"
+                className="btn btn-sage-soft btn-sm"
+                onClick={() => onSwitchToSearchTab(selectedDayTab === 'all' ? 1 : Number(selectedDayTab))}
+              >
+                <Icon name="search" size={14} /> たびさがしから追加
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setCustomSpotDay(selectedDayTab === 'all' ? 1 : Number(selectedDayTab));
+                  setShowAddSpotModal(true);
+                }}
+              >
+                <Icon name="plus" size={14} /> 直接追加
+              </button>
+              {itinerary.length > 1 && (
+                <button
+                  type="button"
+                  className="btn btn-outline-subtle btn-sm auto-align-btn"
+                  onClick={() => handleAutoAlignDayTimes(selectedDayTab === 'all' ? 1 : Number(selectedDayTab))}
+                  title="直前の移動時間と滞在時間を考慮して、到着時刻を順番通りに再計算します"
+                >
+                  <Icon name="clock" size={13} /> 時間を自動整列
+                </button>
+              )}
+              <button
+                type="button"
+                className={`btn ${showAiImportPanel ? 'btn-sage' : 'btn-outline-subtle'} btn-sm`}
+                onClick={() => {
+                  if (showAiImportPanel) {
+                    setShowAiImportPanel(false);
+                  } else {
+                    handleOpenAiPanel();
+                  }
+                }}
+                title="ChatGPTやGeminiのプランをコピペで自動取り込み"
+              >
+                <Icon name="bot" size={14} /> {showAiImportPanel ? 'AI作成を閉じる' : '🤖 AIでおまかせ作成'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* AIプランインライン入力パネル（ボタンを押すと上部にスッと開いて自動ワープ！） */}
         <div ref={aiPanelRef} style={{ scrollMarginTop: '85px' }}>
@@ -891,12 +1031,18 @@ export default function ShioriTab({
                   {/* 日別セパレーター見出し（どこからが何日目かが一目で分かる！） */}
                   <div className="timeline-day-separator">
                     <div className="day-separator-badge">
-                      <span className="day-badge-pill">Day {dayNum}</span>
+                      <span className="day-badge-pill" aria-label={`Day ${dayNum}`}>
+                        <span className="day-pill-label">DAY</span>
+                        <span className="day-pill-num">{dayNum}</span>
+                      </span>
                       <strong className="day-badge-title">
-                        📅 {dayNum}日目 — {getDayDateString(currentTrip?.date, dayNum)}
+                        <span className="day-title-lead">📅 {dayNum}日目</span>
+                        <span className="day-title-sep">—</span>
+                        <span className="day-title-date">{getDayDateString(currentTrip?.date, dayNum)}</span>
                       </strong>
                       <span className="day-badge-count">
-                        {isDay1 ? `${daySpots.length + 1}件（出発含む）` : `${daySpots.length}件`}
+                        <span className="day-count-main">{daySpots.length + (isDay1 ? 1 : 0)}件</span>
+                        {isDay1 && <span className="day-count-sub">（出発含む）</span>}
                       </span>
                     </div>
                     <div className="day-separator-line" />
@@ -926,22 +1072,24 @@ export default function ShioriTab({
                             </p>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-xs"
-                          onClick={() => {
-                            setStartName(currentTrip?.startPoint?.name || '自宅（マイカー・出発）');
-                            setStartTime(currentTrip?.startPoint?.time || '08:30');
-                            setStartMemo(currentTrip?.startPoint?.memo || '');
-                            setStartLat(currentTrip?.startPoint?.lat ?? 35.6812);
-                            setStartLng(currentTrip?.startPoint?.lng ?? 139.7671);
-                            setStartGmapsUrl('');
-                            setStartGmapsResolvedMsg('');
-                            setIsEditingStart(true);
-                          }}
-                        >
-                          <Icon name="edit" size={13} /> 出発地を変更
-                        </button>
+                        {shioriMode === 'edit' && (
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-xs"
+                            onClick={() => {
+                              setStartName(currentTrip?.startPoint?.name || '自宅（マイカー・出発）');
+                              setStartTime(currentTrip?.startPoint?.time || '08:30');
+                              setStartMemo(currentTrip?.startPoint?.memo || '');
+                              setStartLat(currentTrip?.startPoint?.lat ?? 35.6812);
+                              setStartLng(currentTrip?.startPoint?.lng ?? 139.7671);
+                              setStartGmapsUrl('');
+                              setStartGmapsResolvedMsg('');
+                              setIsEditingStart(true);
+                            }}
+                          >
+                            <Icon name="edit" size={13} /> 出発地を変更
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -950,25 +1098,37 @@ export default function ShioriTab({
                   {daySpots.length === 0 ? (
                     <div className="day-empty-placeholder">
                       <p>✨ {dayNum}日目の予定はまだありません</p>
-                      <div className="day-empty-actions">
-                        <button
-                          type="button"
-                          className="btn btn-sage-soft btn-xs"
-                          onClick={() => onSwitchToSearchTab(dayNum)}
-                        >
-                          <Icon name="search" size={13} /> たびさがしから追加
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-xs"
-                          onClick={() => {
-                            setCustomSpotDay(dayNum);
-                            setShowAddSpotModal(true);
-                          }}
-                        >
-                          <Icon name="plus" size={13} /> 直接追加
-                        </button>
-                      </div>
+                      {shioriMode === 'edit' ? (
+                        <div className="day-empty-actions">
+                          <button
+                            type="button"
+                            className="btn btn-sage-soft btn-xs"
+                            onClick={() => onSwitchToSearchTab(dayNum)}
+                          >
+                            <Icon name="search" size={13} /> たびさがしから追加
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-xs"
+                            onClick={() => {
+                              setCustomSpotDay(dayNum);
+                              setShowAddSpotModal(true);
+                            }}
+                          >
+                            <Icon name="plus" size={13} /> 直接追加
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="day-empty-actions">
+                          <button
+                            type="button"
+                            className="btn btn-outline-subtle btn-xs"
+                            onClick={() => setShioriMode('edit')}
+                          >
+                            <Icon name="edit" size={13} /> 予定を追加する（編集モードへ）
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -1023,77 +1183,91 @@ export default function ShioriTab({
                                 </div>
 
                                 <div className="transit-card-box">
-                                  <div className="transit-inputs-row">
-                                    {/* 移動手段 */}
-                                    <label className="transit-field-inline">
-                                      <span className="transit-label-text">移動手段:</span>
-                                      <select
-                                        value={currentMode}
-                                        onChange={(e) =>
-                                          handleTransitChange(spot.id, e.target.value, spot.transitMin)
-                                        }
-                                        className="transit-ui-select"
-                                        title="移動手段を選択"
-                                      >
-                                        {TRANSIT_MODES.map((m) => (
-                                          <option key={m.id} value={m.id}>
-                                            {m.icon} {m.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </label>
+                                  {shioriMode === 'edit' ? (
+                                    <div className="transit-inputs-row">
+                                      {/* 移動手段 */}
+                                      <label className="transit-field-inline">
+                                        <span className="transit-label-text">移動手段:</span>
+                                        <select
+                                          value={currentMode}
+                                          onChange={(e) =>
+                                            handleTransitChange(spot.id, e.target.value, spot.transitMin)
+                                          }
+                                          className="transit-ui-select"
+                                          title="移動手段を選択"
+                                        >
+                                          {TRANSIT_MODES.map((m) => (
+                                            <option key={m.id} value={m.id}>
+                                              {m.icon} {m.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
 
-                                    {/* 所要時間（〇時間 〇分） */}
-                                    {currentModeDef.hasDurationInput && (
-                                      <div className="transit-field-inline">
-                                        <span className="transit-label-text">所要時間:</span>
-                                        <div className="transit-hm-group">
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            max="24"
-                                            placeholder="0"
-                                            value={transitHours === 0 && transitMinutes > 0 ? '' : transitHours}
-                                            onChange={(e) => {
-                                              const val = e.target.value;
-                                              const currentM = transitMinutes === '' ? 0 : Number(transitMinutes);
-                                              if (val === '' && currentM === 0) {
-                                                handleTransitChange(spot.id, currentMode, '');
-                                              } else {
-                                                const h = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
-                                                handleTransitChange(spot.id, currentMode, h * 60 + currentM);
-                                              }
-                                            }}
-                                            className="transit-ui-input transit-input-h"
-                                            title="時間"
-                                          />
-                                          <span className="transit-unit-text">時間</span>
+                                      {/* 所要時間（〇時間 〇分） */}
+                                      {currentModeDef.hasDurationInput && (
+                                        <div className="transit-field-inline">
+                                          <span className="transit-label-text">所要時間:</span>
+                                          <div className="transit-hm-group">
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max="24"
+                                              placeholder="0"
+                                              value={transitHours === 0 && transitMinutes > 0 ? '' : transitHours}
+                                              onChange={(e) => {
+                                                const val = e.target.value;
+                                                const currentM = transitMinutes === '' ? 0 : Number(transitMinutes);
+                                                if (val === '' && currentM === 0) {
+                                                  handleTransitChange(spot.id, currentMode, '');
+                                                } else {
+                                                  const h = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
+                                                  handleTransitChange(spot.id, currentMode, h * 60 + currentM);
+                                                }
+                                              }}
+                                              className="transit-ui-input transit-input-h"
+                                              title="時間"
+                                            />
+                                            <span className="transit-unit-text">時間</span>
 
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            max="59"
-                                            step="5"
-                                            placeholder="0"
-                                            value={transitMinutes}
-                                            onChange={(e) => {
-                                              const val = e.target.value;
-                                              const currentH = transitHours === '' ? 0 : Number(transitHours);
-                                              if (val === '' && currentH === 0) {
-                                                handleTransitChange(spot.id, currentMode, '');
-                                              } else {
-                                                const m = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
-                                                handleTransitChange(spot.id, currentMode, currentH * 60 + m);
-                                              }
-                                            }}
-                                            className="transit-ui-input transit-input-m"
-                                            title="分"
-                                          />
-                                          <span className="transit-unit-text">分</span>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max="59"
+                                              step="5"
+                                              placeholder="0"
+                                              value={transitMinutes}
+                                              onChange={(e) => {
+                                                const val = e.target.value;
+                                                const currentH = transitHours === '' ? 0 : Number(transitHours);
+                                                if (val === '' && currentH === 0) {
+                                                  handleTransitChange(spot.id, currentMode, '');
+                                                } else {
+                                                  const m = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
+                                                  handleTransitChange(spot.id, currentMode, currentH * 60 + m);
+                                                }
+                                              }}
+                                              className="transit-ui-input transit-input-m"
+                                              title="分"
+                                            />
+                                            <span className="transit-unit-text">分</span>
+                                          </div>
                                         </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="transit-view-row">
+                                      <div className="transit-view-badge">
+                                        <span className="transit-view-icon">{currentModeDef.icon}</span>
+                                        <span className="transit-view-mode">{currentModeDef.label}</span>
+                                        {hasTransitVal && (
+                                          <span className="transit-view-duration">
+                                            約{transitHours > 0 ? `${transitHours}時間` : ''}{transitMinutes > 0 ? `${transitMinutes}分` : (transitHours === 0 ? '0分' : '')}
+                                          </span>
+                                        )}
                                       </div>
-                                    )}
-                                  </div>
+                                    </div>
+                                  )}
 
                                   {/* Googleマップ区間ルート案内ボタン */}
                                   {transitRouteUrl && (
@@ -1134,37 +1308,39 @@ export default function ShioriTab({
                                         {spot.icon || '📍'} {spot.category || '立ち寄り'}
                                       </span>
 
-                                      <div className="spot-reorder-btns">
-                                        <button
-                                          type="button"
-                                          className="icon-reorder-btn"
-                                          disabled={dayIdx === 0}
-                                          onClick={() => handleMoveSpotInDay(spot.id, -1)}
-                                          title="上へ移動"
-                                          aria-label="上へ移動"
-                                        >
-                                          <Icon name="chevronUp" size={15} />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="icon-reorder-btn"
-                                          disabled={isLastInDay}
-                                          onClick={() => handleMoveSpotInDay(spot.id, 1)}
-                                          title="下へ移動"
-                                          aria-label="下へ移動"
-                                        >
-                                          <Icon name="chevronDown" size={15} />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="icon-reorder-btn danger"
-                                          onClick={() => handleDeleteSpot(spot.id)}
-                                          title="削除"
-                                          aria-label="削除"
-                                        >
-                                          <Icon name="trash" size={15} />
-                                        </button>
-                                      </div>
+                                      {shioriMode === 'edit' && (
+                                        <div className="spot-reorder-btns">
+                                          <button
+                                            type="button"
+                                            className="icon-reorder-btn"
+                                            disabled={dayIdx === 0}
+                                            onClick={() => handleMoveSpotInDay(spot.id, -1)}
+                                            title="上へ移動"
+                                            aria-label="上へ移動"
+                                          >
+                                            <Icon name="chevronUp" size={15} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="icon-reorder-btn"
+                                            disabled={isLastInDay}
+                                            onClick={() => handleMoveSpotInDay(spot.id, 1)}
+                                            title="下へ移動"
+                                            aria-label="下へ移動"
+                                          >
+                                            <Icon name="chevronDown" size={15} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="icon-reorder-btn danger"
+                                            onClick={() => handleDeleteSpot(spot.id)}
+                                            title="削除"
+                                            aria-label="削除"
+                                          >
+                                            <Icon name="trash" size={15} />
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
 
                                     <h4 className="spot-name-text">{spot.name}</h4>
@@ -1184,61 +1360,84 @@ export default function ShioriTab({
                                   </div>
                                 </div>
 
-                                {/* 時間・滞在目安・日程の入力（カード全幅でゆったり横並び） */}
-                                <div className="spot-time-stay-row">
-                                  {stayDays > 1 && (
-                                    <label className="mini-day-label">
-                                      <Icon name="calendar" size={13} />
-                                      <select
-                                        value={spot.day || 1}
-                                        onChange={(e) =>
-                                          handleSpotFieldChange(spot.id, 'day', Number(e.target.value))
-                                        }
-                                        className="inline-day-select"
-                                        title="予定の日程を変更"
-                                      >
-                                        {daysArray.map((d) => (
-                                          <option key={d} value={d}>
-                                            📅 {d}日目 ({getDayDateString(currentTrip?.date, d)})
-                                          </option>
-                                        ))}
-                                      </select>
+                                {/* 時間・滞在目安・日程（編集モード時はフォーム、見るモード時は雑誌風バッジ） */}
+                                {shioriMode === 'edit' ? (
+                                  <div className="spot-time-stay-row">
+                                    {stayDays > 1 && (
+                                      <label className="mini-day-label">
+                                        <Icon name="calendar" size={13} />
+                                        <select
+                                          value={spot.day || 1}
+                                          onChange={(e) =>
+                                            handleSpotFieldChange(spot.id, 'day', Number(e.target.value))
+                                          }
+                                          className="inline-day-select"
+                                          title="予定の日程を変更"
+                                        >
+                                          {daysArray.map((d) => (
+                                            <option key={d} value={d}>
+                                              📅 {d}日目 ({getDayDateString(currentTrip?.date, d)})
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    )}
+                                    <label className="mini-time-label">
+                                      <Icon name="clock" size={13} />
+                                      <span>時間:</span>
+                                      <input
+                                        type="time"
+                                        value={spot.time || '10:00'}
+                                        onChange={(e) => handleSpotFieldChange(spot.id, 'time', e.target.value)}
+                                        className="inline-time-input"
+                                      />
                                     </label>
-                                  )}
-                                  <label className="mini-time-label">
-                                    <Icon name="clock" size={13} />
-                                    <span>時間:</span>
-                                    <input
-                                      type="time"
-                                      value={spot.time || '10:00'}
-                                      onChange={(e) => handleSpotFieldChange(spot.id, 'time', e.target.value)}
-                                      className="inline-time-input"
-                                    />
-                                  </label>
-                                  <label className="mini-stay-label">
-                                    <span>滞在:</span>
-                                    <input
-                                      type="number"
-                                      min="5"
-                                      step="5"
-                                      value={spot.stayMin || 45}
-                                      onChange={(e) => handleSpotFieldChange(spot.id, 'stayMin', e.target.value)}
-                                      className="inline-stay-input"
-                                    />
-                                    <span>分</span>
-                                  </label>
-                                </div>
+                                    <label className="mini-stay-label">
+                                      <span>滞在:</span>
+                                      <input
+                                        type="number"
+                                        min="5"
+                                        step="5"
+                                        value={spot.stayMin || 45}
+                                        onChange={(e) => handleSpotFieldChange(spot.id, 'stayMin', e.target.value)}
+                                        className="inline-stay-input"
+                                      />
+                                      <span>分</span>
+                                    </label>
+                                  </div>
+                                ) : (
+                                  <div className="spot-time-stay-view">
+                                    <span className="spot-time-badge">
+                                      <Icon name="clock" size={13} />
+                                      <span className="spot-time-text">{spot.time || '10:00'} 到着</span>
+                                    </span>
+                                    {spot.stayMin && (
+                                      <span className="spot-stay-badge">
+                                        <span className="spot-stay-text">滞在 約{spot.stayMin}分</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
 
-                              {/* メモ */}
-                              <div className="spot-memo-box">
-                                <input
-                                  type="text"
-                                  value={spot.memo || ''}
-                                  onChange={(e) => handleSpotFieldChange(spot.id, 'memo', e.target.value)}
-                                  placeholder="メモ（おすすめグルメ、やること等）"
-                                  className="inline-memo-input"
-                                />
-                              </div>
+                              {/* メモ（編集モード時はインプット、見るモード時はメモがある場合のみ吹き出し表示） */}
+                              {shioriMode === 'edit' ? (
+                                <div className="spot-memo-box">
+                                  <input
+                                    type="text"
+                                    value={spot.memo || ''}
+                                    onChange={(e) => handleSpotFieldChange(spot.id, 'memo', e.target.value)}
+                                    placeholder="メモ（おすすめグルメ、やること等）"
+                                    className="inline-memo-input"
+                                  />
+                                </div>
+                              ) : (
+                                spot.memo && (
+                                  <div className="spot-memo-view-bubble">
+                                    <span className="spot-memo-bubble-icon">📝</span>
+                                    <span className="spot-memo-bubble-text">{spot.memo}</span>
+                                  </div>
+                                )
+                              )}
 
                               {/* Googleマップ連携 & 周辺グルメ・宿検索ボタン */}
                               <div className="spot-footer-action">
