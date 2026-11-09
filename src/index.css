@@ -1522,7 +1522,7 @@ select:focus {
   margin-top: 6px;
 }
 
-/* ---------------- Leaflet全体ルートマップ ---------------- */
+/* ---------------- Leaflet全体ルートマップ（プルダウン式） ---------------- */
 .map-route-wrapper {
   background: var(--surface-card);
   border: 1px solid var(--border);
@@ -1531,22 +1531,109 @@ select:focus {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.map-route-header {
-  padding: 16px 20px;
+.map-route-wrapper.is-collapsed {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.map-route-header-btn {
+  width: 100%;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s ease;
+}
+
+.map-route-header-btn:hover {
+  background: rgba(88, 123, 102, 0.05);
+}
+
+.is-open .map-route-header-btn {
   border-bottom: 1px solid var(--border-subtle);
+  background: rgba(88, 123, 102, 0.03);
 }
 
 .map-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.map-title-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-title-main-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.map-count-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--sage-dark, #2b4b36);
+  background: var(--sage-soft, #e8f3ec);
+  padding: 1px 7px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.map-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.map-toggle-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f5f2;
+  border: 1px solid #d4e2da;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill, 9999px);
+  color: var(--sage-dark, #2f523c);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.map-route-header-btn:hover .map-toggle-action {
+  background: var(--sage, #476a55);
+  color: #ffffff;
+  border-color: var(--sage, #476a55);
+}
+
+.map-route-header-btn:hover .map-toggle-action .icon {
+  stroke: #ffffff;
+}
+
+.map-toggle-chevron {
+  transition: transform 0.2s ease;
+}
+
+.map-collapsible-content {
+  animation: fadeIn 0.2s ease-in-out;
 }
 
 .botanical-icon-badge {
@@ -1559,22 +1646,16 @@ select:focus {
   border-radius: 9px;
 }
 
-.map-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-.map-sub {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
 .map-legend {
   display: flex;
   align-items: center;
   gap: 12px;
   font-size: 0.75rem;
   color: var(--text-muted);
+  padding: 8px 18px;
+  background: var(--bg-soft, #f7faf8);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
 }
 
 .legend-item {
@@ -6812,6 +6893,29 @@ input:checked + .toggle-slider::after {
     padding: 5px 9px;
     font-size: 0.74rem;
     gap: 4px;
+  }
+
+  /* ルートマップのスマホ最適化（1行でスッキリ整列） */
+  .map-route-header-btn {
+    padding: 10px 14px;
+  }
+
+  .map-title {
+    font-size: 0.88rem;
+  }
+
+  .map-sub {
+    display: none;
+  }
+
+  .map-toggle-action {
+    padding: 4px 10px;
+    font-size: 0.74rem;
+    gap: 4px;
+  }
+
+  .leaflet-map-root {
+    height: 260px;
   }
 
   .shiori-timeline-header {
