@@ -936,7 +936,8 @@ export function diagnoseTripWeatherAndBag(trip) {
   const isMountainText = (t) =>
     /(?:ハイキング|トレッキング|登山|山登り|高原|アルプス|美ヶ原|白馬|室堂|千畳敷|富士山|連峰|山小屋|標高(?:\d+|高い))/i.test(t);
   const isOnsenText = (t) => /温泉|湯|露天|足湯|サウナ|スパ/.test(t);
-  const isBeachText = (t) => /海|浜|ビーチ|島|江の島|湘南|海岸|川|ラフティング|カヤック|シュノーケル|プール/.test(t);
+  const isBeachText = (t) =>
+    /(?:ビーチ|海水浴|砂浜|サンビーチ|海岸通り|白浜|湘南|江の島|江ノ島|由比ヶ浜|海辺|水遊び|川遊び|ラフティング|カヤック|シュノーケル|SUP|ダイビング|サーフィン|プール|渓流下り)/i.test(t);
   const isShrineText = (t) => /神社|寺|大社|神宮|城|参拝|大仏|観音/.test(t);
 
   // 全日程の中から特定ジャンルに当てはまるスポットを漏れなく抽出
@@ -988,7 +989,7 @@ export function diagnoseTripWeatherAndBag(trip) {
       const cleanName = (first.name || 'スポット').replace(/（.*?）|\(.*?\)/g, '').trim();
       areaName = daySpots.length === 1 ? cleanName : `${cleanName} 周辺`;
     } else {
-      areaName = trip?.title ? `${trip.title}` : `${dayNumber}日目の滞在地`;
+      areaName = trip?.mainSpot ? `${trip.mainSpot} 周辺` : `${dayNumber}日目（未設定）`;
     }
 
     // その日のスポットに高原や山岳・海・温泉があるか
@@ -1137,11 +1138,15 @@ export function diagnoseTripWeatherAndBag(trip) {
     };
   }
 
-  // 表示用エリア名サマリー
+  // 表示用エリア名サマリー（スポット未登録日に旅行タイトルが地名として混入しないようガード）
+  const activeDayAreas = dailyForecasts
+    .filter((d) => d.spotsCount > 0)
+    .map((d) => d.areaName)
+    .filter(Boolean);
   const displaySpotName =
-    itinerary.length > 0
-      ? dailyForecasts.map((d) => d.areaName).filter(Boolean).slice(0, 2).join('・')
-      : trip?.title || '旅の目的地';
+    activeDayAreas.length > 0
+      ? [...new Set(activeDayAreas)].slice(0, 2).join('・')
+      : trip?.mainSpot || '目的地エリア';
 
   return {
     season,

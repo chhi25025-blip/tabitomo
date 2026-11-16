@@ -129,9 +129,7 @@ a {
   top: 0;
   z-index: 40;
   height: var(--header-h);
-  background: rgba(250, 247, 242, 0.85);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: #faf7f2;
   border-bottom: 1px solid var(--border);
 }
 
@@ -3740,10 +3738,9 @@ input:checked + .toggle-slider::after {
   right: 0;
   height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(250, 247, 242, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #faf7f2;
   border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(45, 51, 47, 0.08);
   z-index: 50;
   align-items: center;
   justify-content: space-around;
@@ -3785,18 +3782,30 @@ input:checked + .toggle-slider::after {
   bottom: 30px;
   left: 50%;
   transform: translateX(-50%);
+  width: max-content;
+  max-width: min(540px, calc(100vw - 32px));
   background: var(--text);
   color: #fff;
-  padding: 10px 20px;
+  padding: 10px 18px;
   border-radius: var(--radius-pill);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 600;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-align: center;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   box-shadow: var(--shadow-lg);
-  z-index: 100;
+  z-index: 120;
   animation: toastFadeIn 0.25s var(--ease);
+}
+
+.app-toast-alert svg {
+  flex-shrink: 0;
 }
 
 @keyframes toastFadeIn {
@@ -5512,6 +5521,9 @@ input:checked + .toggle-slider::after {
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .ai-step-head {
@@ -5519,16 +5531,23 @@ input:checked + .toggle-slider::after {
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 
 .ai-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  white-space: nowrap;
   background: var(--sage);
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 800;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 12px;
   letter-spacing: 0.04em;
+  line-height: 1.2;
 }
 
 .ai-step-title {
@@ -5921,23 +5940,30 @@ input:checked + .toggle-slider::after {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .ai-form-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ai-form-group.flex-1 {
-  flex: 1;
-  min-width: 140px;
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ai-form-row {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .ai-field-label {
@@ -5961,6 +5987,9 @@ input:checked + .toggle-slider::after {
 .ai-field-input,
 .ai-field-select {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: block;
   border: 1px solid #c7d8cb;
   border-radius: 6px;
   padding: 8px 10px;
@@ -5970,6 +5999,12 @@ input:checked + .toggle-slider::after {
   background: #ffffff;
   box-sizing: border-box;
   transition: all 0.2s ease;
+}
+
+.ai-field-input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 38px;
 }
 
 .ai-field-input:focus,
@@ -6468,10 +6503,10 @@ input:checked + .toggle-slider::after {
 }
 
 .inline-panel-title {
-  font-size: 0.95rem;
+  font-size: 0.98rem;
   font-weight: 700;
   color: var(--sage-dark, #2e4d3a);
-  margin: 0 0 2px 0;
+  margin: 0;
 }
 
 .inline-panel-sub {
@@ -6956,6 +6991,89 @@ input:checked + .toggle-slider::after {
 
   .celebration-desc {
     font-size: 0.74rem;
+  }
+
+  /* AIプラン取り込みパネルのスマホ最適化（はみ出し・改行崩れ防止） */
+  .ai-inline-panel-header {
+    padding: 12px 14px;
+  }
+
+  .ai-inline-panel-body {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .ai-step-card {
+    padding: 14px 12px;
+    overflow: hidden;
+  }
+
+  .ai-conditions-form {
+    padding: 10px 12px;
+  }
+
+  .ai-form-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ai-form-group,
+  .ai-form-group.flex-1 {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* スマホ版「しおりを見る」時のナビ・周辺グルメ プルダウン化 */
+  .spot-action-dropdown-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    border: 1px solid #d5e2d7;
+    background: #f6faf7;
+    color: var(--sage-dark, #365742);
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+
+  .spot-action-dropdown-btn.is-open {
+    background: var(--sage);
+    border-color: var(--sage);
+    color: #ffffff;
+  }
+
+  .spot-footer-action.is-mobile-collapsed {
+    display: none !important;
+  }
+
+  .spot-footer-action.is-mobile-expanded {
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e2ece3;
+    animation: fadeIn 0.18s ease-out;
+  }
+
+  .spot-footer-action.is-mobile-expanded .btn {
+    flex: 1 1 auto;
+    width: auto;
+    justify-content: center;
+  }
+}
+
+/* デスクトップではカード内プルダウンボタンを非表示（ボタンを常時1行表示） */
+@media (min-width: 641px) {
+  .spot-action-dropdown-btn {
+    display: none;
   }
 }
 

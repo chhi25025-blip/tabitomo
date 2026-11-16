@@ -206,10 +206,7 @@ export default function AiPlanInlinePanel({
             <Icon name="bot" size={17} />
           </span>
           <div>
-            <h4 className="inline-panel-title">AIプラン取り込み（おまかせ自動作成）</h4>
-            <p className="inline-panel-sub">
-              行先を入力してプロンプトをコピー ➔ ChatGPTやGeminiの回答を貼るだけで旅程＆持ち物を登録！
-            </p>
+            <h4 className="inline-panel-title">AIプラン取り込み</h4>
           </div>
         </div>
         <button
@@ -227,13 +224,10 @@ export default function AiPlanInlinePanel({
       <div className="ai-inline-panel-body">
         {/* Step 1: 旅行条件の入力 & プロンプトコピー */}
         <section className="ai-step-card">
-          <div className="ai-step-head">
+          <div className="ai-step-head" style={{ marginBottom: '12px' }}>
             <span className="ai-step-badge">Step 1</span>
             <h4 className="ai-step-title">行先を決めてプロンプトをコピー</h4>
           </div>
-          <p className="ai-step-desc">
-            行きたい場所と日程を選ぶと、ChatGPTやGeminiに投げる質問文が自動で完成します。
-          </p>
 
           {/* 条件入力ミニフォーム */}
           <div className="ai-conditions-form">
@@ -342,20 +336,24 @@ export default function AiPlanInlinePanel({
           </div>
 
           {/* プロンプト種類切り替えタブ */}
-          <div className="prompt-mode-tabs">
+          <div className="prompt-mode-tabs" role="tablist" aria-label="プロンプト種類の切り替え">
             <button
               type="button"
+              role="tab"
+              aria-selected={promptMode === 'quick'}
               className={`prompt-mode-btn ${promptMode === 'quick' ? 'is-active' : ''}`}
               onClick={() => setPromptMode('quick')}
             >
-              ⚡ 一発作成（旅程＆持ち物をすぐ出力）
+              ⚡ 一発作成（旅程＆持ち物）
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={promptMode === 'consult'}
               className={`prompt-mode-btn ${promptMode === 'consult' ? 'is-active' : ''}`}
               onClick={() => setPromptMode('consult')}
             >
-              💬 AIと相談（おすすめ店や見どころを一緒に決める）
+              💬 AIと相談して決める
             </button>
           </div>
 

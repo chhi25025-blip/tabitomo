@@ -196,8 +196,9 @@ export async function searchPhotoFromRakuten(keyword, keys) {
 
 /**
  * Wikipediaからスポット名で解説と写真を補完取得する
+ * requireCoords: true の場合、座標を持たない同音異義語（例:「日光＝太陽光」「白馬＝動物」）を弾き、cityHint で再検索する
  */
-async function fetchWikiInfo(spotName) {
+async function fetchWikiInfo(spotName, { requireCoords = false, cityHint = '' } = {}) {
   try {
     const url = `https://ja.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(
       spotName
@@ -206,7 +207,20 @@ async function fetchWikiInfo(spotName) {
     if (!res.ok) return null;
     const data = await res.json();
     const page = Object.values(data?.query?.pages || {})[0];
-    if (!page || page.missing) return null;
+    if (!page || page.missing) {
+      if (cityHint && cityHint !== spotName) {
+        return fetchWikiInfo(cityHint, { requireCoords, cityHint: '' });
+      }
+      return null;
+    }
+
+    const hasCoords = Array.isArray(page.coordinates) && page.coordinates.length > 0;
+    if (requireCoords && !hasCoords) {
+      if (cityHint && cityHint !== spotName) {
+        return fetchWikiInfo(cityHint, { requireCoords: true, cityHint: '' });
+      }
+      return null;
+    }
 
     let extract = (page.extract || '').replace(/\s+/g, ' ').trim();
     if (extract.length > 180) extract = extract.slice(0, 180) + '…';
@@ -388,8 +402,9 @@ export async function searchSpotHybrid(query) {
       .filter(Boolean)
       .join(' ');
 
-    // 写真と解説の取得（Wikipedia ＋ 楽天）
-    const wikiInfo = await fetchWikiInfo(name);
+    // 写真と解説の取得（Wikipedia ＋ 楽天。座標のない一般名詞記事「日光＝太陽光」等は弾く）
+    const cityHint = addr.city || addr.town || addr.village || '';
+    const wikiInfo = await fetchWikiInfo(name, { requireCoords: true, cityHint });
 
     let extract = wikiInfo?.extract || '';
     if (!extract) {

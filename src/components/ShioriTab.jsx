@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Icon from './Icon';
 import MapRoute from './MapRoute';
-import SpotImage from './SpotImage';
 import {
   getGoogleMapsNavUrl,
   formatDate,
@@ -58,6 +57,8 @@ export default function ShioriTab({
 }) {
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [showAddSpotModal, setShowAddSpotModal] = useState(false);
+  const [confirmDeleteTrip, setConfirmDeleteTrip] = useState(null);
+  const [customSpotFormError, setCustomSpotFormError] = useState('');
   const [showAiImportPanel, setShowAiImportPanel] = useState(false);
   const aiPanelRef = useRef(null);
 
@@ -134,11 +135,22 @@ export default function ShioriTab({
   const [customSpotMemo, setCustomSpotMemo] = useState('');
   const [customSpotDay, setCustomSpotDay] = useState(1);
 
-  // 各スポットカードごとの周辺グルメ・宿検索ステート
+  // 各スポットカードごとの周辺グルメ・宿検索＆スマホ用アクションメニュー開閉ステート
+  const [expandedActionSpotId, setExpandedActionSpotId] = useState(null);
   const [expandedNearbySpotId, setExpandedNearbySpotId] = useState(null);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyCache, setNearbyCache] = useState({}); // { [spotId]: { gourmets: [], hotels: [] } }
   const [nearbyTab, setNearbyTab] = useState('gourmet'); // 'gourmet' | 'hotel'
+
+  const handleToggleSpotActions = (spotId) => {
+    setExpandedActionSpotId((prev) => {
+      const next = prev === spotId ? null : spotId;
+      if (!next && expandedNearbySpotId === spotId) {
+        setExpandedNearbySpotId(null);
+      }
+      return next;
+    });
+  };
 
   const currentTrip =
     (trips && trips.find((t) => t.id === activeTripId)) ||
@@ -540,7 +552,11 @@ export default function ShioriTab({
   // 手動でカスタムスポット追加
   const handleAddCustomSpot = async (e) => {
     e.preventDefault();
-    if (!customSpotName.trim()) return;
+    if (!customSpotName.trim()) {
+      setCustomSpotFormError('スポット・お店の名前を入力してください');
+      return;
+    }
+    setCustomSpotFormError('');
 
     let resolvedLat = customSpotLat;
     let resolvedLng = customSpotLng;
@@ -584,6 +600,7 @@ export default function ShioriTab({
     setCustomSpotLng(null);
     setCustomSpotImageUrl(null);
     setCustomSpotMemo('');
+    setCustomSpotFormError('');
     setGmapsResolvedMsg('');
     setShowAddSpotModal(false);
   };
@@ -613,15 +630,14 @@ export default function ShioriTab({
             </span>
           </div>
 
-          {trips.length < 5 && (
-            <button
-              type="button"
-              className="btn btn-terracotta btn-sm switcher-add-btn"
-              onClick={onCreateTrip}
-            >
-              <Icon name="plus" size={14} /> 新しい旅行を作成
-            </button>
-          )}
+          <button
+            type="button"
+            className={`btn btn-sm switcher-add-btn ${trips.length >= 5 ? 'btn-outline-subtle' : 'btn-terracotta'}`}
+            onClick={onCreateTrip}
+            title={trips.length >= 5 ? 'しおりは最大5件まで作成できます' : '新しい旅行を作成'}
+          >
+            <Icon name="plus" size={14} /> {trips.length >= 5 ? '作成上限 (5/5件)' : '新しい旅行を作成'}
+          </button>
         </div>
 
         <div className="trip-tabs-scroll">
@@ -685,7 +701,7 @@ export default function ShioriTab({
                   <button
                     type="button"
                     className="btn btn-ghost-danger btn-sm"
-                    onClick={() => onDeleteTrip(currentTrip?.id)}
+                    onClick={() => setConfirmDeleteTrip(currentTrip)}
                     title="この旅行を削除"
                   >
                     <Icon name="trash" size={15} />
@@ -1213,6 +1229,8 @@ export default function ShioriTab({
                           totalTransitMin !== '' && totalTransitMin != null && !isNaN(totalTransitMin);
                         const transitHours = hasTransitVal ? Math.floor(Number(totalTransitMin) / 60) : '';
                         const transitMinutes = hasTransitVal ? Number(totalTransitMin) % 60 : '';
+                        const isActionsOpen =
+                          expandedActionSpotId === spot.id || expandedNearbySpotId === spot.id;
 
                         return (
                           <React.Fragment key={spot.id}>
@@ -1351,6 +1369,19 @@ export default function ShioriTab({
                                         {spot.icon || '📍'} {spot.category || '立ち寄り'}
                                       </span>
 
+                                      {shioriMode === 'view' && (
+                                        <button
+                                          type="button"
+                                          className={`spot-action-dropdown-btn ${isActionsOpen ? 'is-open' : ''}`}
+                                          onClick={() => handleToggleSpotActions(spot.id)}
+                                          aria-expanded={isActionsOpen}
+                                          title="ナビ・周辺グルメメニューを開く"
+                                        >
+                                          <span>{isActionsOpen ? '閉じる' : 'ナビ・周辺'}</span>
+                                          <Icon name={isActionsOpen ? 'chevronUp' : 'chevronDown'} size={13} />
+                                        </button>
+                                      )}
+
                                       {shioriMode === 'edit' && (
                                         <div className="spot-reorder-btns">
                                           <button
@@ -1387,19 +1418,6 @@ export default function ShioriTab({
                                     </div>
 
                                     <h4 className="spot-name-text">{spot.name}</h4>
-                                  </div>
-
-                                  {/* スポット写真サムネイル */}
-                                  <div className="timeline-thumb-col">
-                                    <SpotImage
-                                      src={spot.imageUrl}
-                                      alt={spot.name}
-                                      source={spot.imageSource}
-                                      title={spot.name}
-                                      desc={spot.memo}
-                                      aspectRatio="4/3"
-                                      className="timeline-spot-thumb"
-                                    />
                                   </div>
                                 </div>
 
@@ -1462,28 +1480,16 @@ export default function ShioriTab({
                                   </div>
                                 )}
 
-                              {/* メモ（編集モード時はインプット、見るモード時はメモがある場合のみ吹き出し表示） */}
-                              {shioriMode === 'edit' ? (
-                                <div className="spot-memo-box">
-                                  <input
-                                    type="text"
-                                    value={spot.memo || ''}
-                                    onChange={(e) => handleSpotFieldChange(spot.id, 'memo', e.target.value)}
-                                    placeholder="メモ（おすすめグルメ、やること等）"
-                                    className="inline-memo-input"
-                                  />
-                                </div>
-                              ) : (
-                                spot.memo && (
-                                  <div className="spot-memo-view-bubble">
-                                    <span className="spot-memo-bubble-icon">📝</span>
-                                    <span className="spot-memo-bubble-text">{spot.memo}</span>
-                                  </div>
-                                )
-                              )}
-
-                              {/* Googleマップ連携 & 周辺グルメ・宿検索ボタン */}
-                              <div className="spot-footer-action">
+                              {/* Googleマップ連携 & 周辺グルメ・宿検索ボタン（スマホ版見るモードではプルダウン制御） */}
+                              <div
+                                className={`spot-footer-action ${
+                                  shioriMode === 'view'
+                                    ? isActionsOpen
+                                      ? 'is-mobile-expanded'
+                                      : 'is-mobile-collapsed'
+                                    : ''
+                                }`}
+                              >
                                 <a
                                   href={spot.googleMapsUrl || navUrl}
                                   target="_blank"
@@ -1688,15 +1694,17 @@ export default function ShioriTab({
               </button>
             </div>
 
-            <form onSubmit={handleAddCustomSpot} className="modal-form">
+            <form onSubmit={handleAddCustomSpot} className="modal-form" noValidate>
               <label className="field-block">
                 <span className="field-label">スポット・お店の名前</span>
                 <input
                   type="text"
                   value={customSpotName}
-                  onChange={(e) => setCustomSpotName(e.target.value)}
+                  onChange={(e) => {
+                    setCustomSpotName(e.target.value);
+                    if (e.target.value.trim()) setCustomSpotFormError('');
+                  }}
                   placeholder="例: レストラン、展望台、パーキング"
-                  required
                 />
               </label>
 
@@ -1778,21 +1786,20 @@ export default function ShioriTab({
                 </label>
               </div>
 
-              <label className="field-block">
-                <span className="field-label">メモ</span>
-                <input
-                  type="text"
-                  value={customSpotMemo}
-                  onChange={(e) => setCustomSpotMemo(e.target.value)}
-                  placeholder="例: テラス席を予約済み"
-                />
-              </label>
+              {customSpotFormError && (
+                <p className="form-error-text">
+                  <Icon name="x" size={14} /> {customSpotFormError}
+                </p>
+              )}
 
               <div className="modal-actions">
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setShowAddSpotModal(false)}
+                  onClick={() => {
+                    setCustomSpotFormError('');
+                    setShowAddSpotModal(false);
+                  }}
                 >
                   キャンセル
                 </button>
@@ -1801,6 +1808,51 @@ export default function ShioriTab({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 旅行削除の確認モーダル */}
+      {confirmDeleteTrip && (
+        <div className="modal-backdrop" onClick={() => setConfirmDeleteTrip(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h3>しおりの削除確認</h3>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setConfirmDeleteTrip(null)}
+                aria-label="閉じる"
+              >
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+            <p style={{ margin: '8px 0 18px', fontSize: '0.94rem', lineHeight: 1.6, color: 'var(--text)' }}>
+              「<strong>{confirmDeleteTrip.title}</strong>」を削除しますか？<br />
+              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                ※ 登録したスポットや持ち物チェックも消去されます（元に戻せません）。
+              </span>
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setConfirmDeleteTrip(null)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="btn btn-terracotta"
+                onClick={() => {
+                  const idToDelete = confirmDeleteTrip.id;
+                  setConfirmDeleteTrip(null);
+                  onDeleteTrip(idToDelete);
+                }}
+              >
+                <Icon name="trash" size={15} /> 削除する
+              </button>
+            </div>
           </div>
         </div>
       )}

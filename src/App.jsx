@@ -181,7 +181,7 @@ export default function App() {
 
     setTrips((prev) => [...prev, newTrip]);
     setActiveTripId(newTripId);
-    showToast(`「${newTrip.title}」を作成しました`);
+    showToast(`「${newTrip.title}」を作成しました（「編集」から名前・日程を変更できます）`);
   };
 
   // 旅行削除

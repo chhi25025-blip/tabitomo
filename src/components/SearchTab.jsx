@@ -13,7 +13,7 @@ import {
   resolveGoogleMapsSpot,
   isGoogleMapsUrl,
 } from '../api/spotSearchApi';
-import { getGoogleMapsSearchUrl } from '../utils';
+import { getGoogleMapsSearchUrl, addMinutesToTimeString } from '../utils';
 
 export default function SearchTab({
   currentTrip,
@@ -275,6 +275,20 @@ export default function SearchTab({
 
     const chosenDay = Number(targetDay) || 1;
 
+    // 同じ日の既存スポットと時間が重ならないように次の到着時刻を自動算出
+    const sameDaySpots = (currentTrip?.itinerary || []).filter(
+      (s) => (Number(s.day) || 1) === chosenDay
+    );
+    let nextTime = '10:00';
+    if (sameDaySpots.length > 0) {
+      const lastSpot = sameDaySpots[sameDaySpots.length - 1];
+      const lastStart = lastSpot.time || '10:00';
+      const lastStay = Number(lastSpot.stayMin) || 45;
+      nextTime = addMinutesToTimeString(lastStart, lastStay + 20);
+    } else if (chosenDay === 1 && currentTrip?.startPoint?.time) {
+      nextTime = addMinutesToTimeString(currentTrip.startPoint.time, 30);
+    }
+
     const newSpotItem = {
       id: `spot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: spotData.name || spotData.title,
@@ -285,7 +299,7 @@ export default function SearchTab({
       lng: spotData.lng,
       imageUrl: spotData.imageUrl || null,
       imageSource: spotData.imageSource || null,
-      time: '11:00',
+      time: nextTime,
       stayMin: spotData.defaultStay || (isYorimichi ? 45 : 60),
       memo: spotData.tag || spotData.desc || spotData.extract || '',
       day: chosenDay,
@@ -556,6 +570,7 @@ export default function SearchTab({
                         className="btn btn-sage-soft btn-xs btn-block"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setSelectedSpot(item);
                           handleAddSpot(item, false);
                         }}
                       >
