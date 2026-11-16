@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Icon from './Icon';
 import { AVATAR_COLORS } from '../travelData';
 import { computeSettlement, yen, uid } from '../utils';
+import { generateShareMessageWithUrl } from '../utils/shareUrl';
 
 export default function WarikanTab({
+  currentTrip,
   members,
   expenses,
   onAddMember,
@@ -17,6 +19,43 @@ export default function WarikanTab({
   const [payerId, setPayerId] = useState(members[0]?.id || '');
   const [participantIds, setParticipantIds] = useState(() => members.map((m) => m.id));
   const [formError, setFormError] = useState('');
+  const [copiedWarikanUrl, setCopiedWarikanUrl] = useState(false);
+
+  // 共有URLインポート等によるメンバー入れ替え時の選択状態同期
+  useEffect(() => {
+    const validIds = new Set(members.map((m) => m.id));
+    if (!validIds.has(payerId)) {
+      setPayerId(members[0]?.id || '');
+    }
+    setParticipantIds((prev) => {
+      const filtered = prev.filter((id) => validIds.has(id));
+      return filtered.length > 0 ? filtered : members.map((m) => m.id);
+    });
+  }, [members]);
+
+  // わりかんURLコピーハンドラ
+  const handleCopyWarikanShareUrl = async () => {
+    const text = generateShareMessageWithUrl(currentTrip, { members, expenses }, 'warikan');
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedWarikanUrl(true);
+      setTimeout(() => setCopiedWarikanUrl(false), 4000);
+    } catch (err) {
+      console.warn('Copy failed:', err);
+    }
+  };
 
   // メンバー追加
   const handleAddMember = (e) => {
@@ -351,7 +390,26 @@ export default function WarikanTab({
               <p className="sub-text">合計支出と1人あたりの負担から自動計算</p>
             </div>
           </div>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${copiedWarikanUrl ? 'btn-sage' : 'btn-outline-subtle'} line-share-head-btn`}
+            onClick={handleCopyWarikanShareUrl}
+            title="わりかん精算データ（しおり含む）をURLで共有"
+          >
+            <Icon name={copiedWarikanUrl ? 'check' : 'link'} size={14} />
+            <span>{copiedWarikanUrl ? 'URLコピー完了！' : 'URLで共有'}</span>
+          </button>
         </div>
+
+        {copiedWarikanUrl && (
+          <div className="shiori-toast-banner" role="status" aria-live="polite">
+            <span className="toast-icon">🔗</span>
+            <span className="toast-msg">
+              わりかん共有URLをコピーしました！LINE等に貼ると、みんな同じ精算画面・しおりをそのまま開けます🎉
+            </span>
+          </div>
+        )}
 
         {/* 支出サマリー数字 */}
         <div className="summary-three-tiles">

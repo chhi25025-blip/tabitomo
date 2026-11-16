@@ -13,6 +13,7 @@ import {
   defaultTripDate,
 } from '../utils';
 import { TRIP_STYLES } from '../travelData';
+import { findCoordinatesInLocalDictionary } from '../api/spotSearchApi';
 
 export default function AiPlanInlinePanel({
   currentTrip,
@@ -110,7 +111,11 @@ export default function AiPlanInlinePanel({
     }
 
     const result = parseAiPlanText(inputText);
-    setEditableSpots(result.itinerary);
+    const spotsWithCoords = (result.itinerary || []).map((s) => {
+      const match = findCoordinatesInLocalDictionary(s.name);
+      return match ? { ...s, lat: match.lat, lng: match.lng } : s;
+    });
+    setEditableSpots(spotsWithCoords);
     setEditablePacking(result.packingList);
     setDetectedTitle(result.title);
     setDetectedDaysCount(result.daysCount);

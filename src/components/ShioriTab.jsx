@@ -17,6 +17,7 @@ import {
   defaultTripDate,
   formatTripForLineShare,
 } from '../utils';
+import { generateShareMessageWithUrl } from '../utils/shareUrl';
 import { TRIP_STYLES, styleInfo } from '../travelData';
 
 import {
@@ -26,6 +27,8 @@ import {
   fetchNearbyHotpepperGourmet,
   searchPhotoFromRakuten,
   getExternalApiKeys,
+  resolveSpotCoordinates,
+  enrichTripSpotsWithCoordinates,
 } from '../api/spotSearchApi';
 import AiPlanInlinePanel from './AiPlanInlinePanel';
 
@@ -50,6 +53,8 @@ export default function ShioriTab({
   onUpdateItinerary,
   onSwitchToSearchTab,
   onImportAiPlan,
+  members = [],
+  expenses = [],
 }) {
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [showAddSpotModal, setShowAddSpotModal] = useState(false);
@@ -65,9 +70,9 @@ export default function ShioriTab({
   // 並べ替えや自動整列のフィードバックトースト通知
   const [reorderFeedbackMsg, setReorderFeedbackMsg] = useState('');
 
-  // LINE共有用テキストコピーハンドラ
-  const handleCopyLineShare = async () => {
-    const text = formatTripForLineShare(currentTrip);
+  // 共有URLコピーハンドラ（しおり＋割り勘データを同時共有）
+  const handleCopyShareUrl = async () => {
+    const text = generateShareMessageWithUrl(currentTrip, { members, expenses }, 'shiori');
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
@@ -83,7 +88,7 @@ export default function ShioriTab({
         document.body.removeChild(textArea);
       }
       setCopiedShareText(true);
-      setTimeout(() => setCopiedShareText(false), 3500);
+      setTimeout(() => setCopiedShareText(false), 4000);
     } catch (err) {
       console.warn('Copy failed:', err);
     }
@@ -147,6 +152,30 @@ export default function ShioriTab({
       memo: '',
       itinerary: [],
     };
+
+  // 既存しおり内の未解決座標を自動的に取得・補完する処理
+  useEffect(() => {
+    if (!currentTrip?.itinerary || currentTrip.itinerary.length === 0) return;
+
+    const spotsWithoutCoords = currentTrip.itinerary.filter(
+      (s) => s.name && (typeof s.lat !== 'number' || typeof s.lng !== 'number' || isNaN(s.lat) || isNaN(s.lng))
+    );
+
+    if (spotsWithoutCoords.length === 0) return;
+
+    let isMounted = true;
+    (async () => {
+      const areaHint = currentTrip.mainSpot || currentTrip.title || '';
+      const updated = await enrichTripSpotsWithCoordinates(currentTrip.itinerary, areaHint);
+      if (isMounted && updated !== currentTrip.itinerary) {
+        onUpdateItinerary(currentTrip.id, updated);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentTrip?.id, currentTrip?.itinerary]);
 
   // 旅行タイトル等の編集用ローカルステート
   const [editTitle, setEditTitle] = useState(currentTrip?.title || '');
@@ -509,21 +538,35 @@ export default function ShioriTab({
   };
 
   // 手動でカスタムスポット追加
-  const handleAddCustomSpot = (e) => {
+  const handleAddCustomSpot = async (e) => {
     e.preventDefault();
     if (!customSpotName.trim()) return;
 
-    // 既存スポットの緯度経度から少しずらすか、デフォルト設定
-    const baseLat = currentTrip?.itinerary?.[0]?.lat || 35.2332;
-    const baseLng = currentTrip?.itinerary?.[0]?.lng || 139.1038;
+    let resolvedLat = customSpotLat;
+    let resolvedLng = customSpotLng;
+
+    // GoogleマップURLがない、または座標が未取得の場合は名前から自動ジオコーディング
+    if (!resolvedLat || !resolvedLng) {
+      const areaHint = currentTrip?.mainSpot || currentTrip?.title || '';
+      const coords = await resolveSpotCoordinates(customSpotName.trim(), areaHint);
+      if (coords) {
+        resolvedLat = coords.lat;
+        resolvedLng = coords.lng;
+      } else {
+        const baseLat = currentTrip?.itinerary?.[0]?.lat || currentTrip?.startPoint?.lat || 35.6812;
+        const baseLng = currentTrip?.itinerary?.[0]?.lng || currentTrip?.startPoint?.lng || 139.7671;
+        resolvedLat = baseLat + (Math.random() - 0.5) * 0.02;
+        resolvedLng = baseLng + (Math.random() - 0.5) * 0.02;
+      }
+    }
 
     const newSpot = {
       id: `spot-custom-${Date.now()}`,
       name: customSpotName.trim(),
       category: customSpotGmapsUrl ? 'Googleマップ' : '立ち寄り',
       icon: '📍',
-      lat: customSpotLat || baseLat + (Math.random() - 0.5) * 0.04,
-      lng: customSpotLng || baseLng + (Math.random() - 0.5) * 0.04,
+      lat: resolvedLat,
+      lng: resolvedLng,
       imageUrl: customSpotImageUrl || null,
       time: customSpotTime || '12:00',
       stayMin: Number(customSpotStay) || 45,
@@ -611,11 +654,11 @@ export default function ShioriTab({
                 <button
                   type="button"
                   className={`btn btn-sm ${copiedShareText ? 'btn-sage' : 'btn-outline-subtle'} line-share-head-btn`}
-                  onClick={handleCopyLineShare}
-                  title="LINE等で友達に送れるテキスト形式でしおりをコピー"
+                  onClick={handleCopyShareUrl}
+                  title="URL共有リンクをコピー（LINE等に貼ると相手も同じアプリ画面で開けます）"
                 >
-                  <Icon name={copiedShareText ? 'check' : 'copy'} size={14} />
-                  <span>{copiedShareText ? 'コピー完了！' : 'LINEで共有'}</span>
+                  <Icon name={copiedShareText ? 'check' : 'link'} size={14} />
+                  <span>{copiedShareText ? 'URLコピー完了！' : 'URLで共有'}</span>
                 </button>
 
                 <button
@@ -828,10 +871,10 @@ export default function ShioriTab({
         {/* コピー完了・並び替えフィードバックトースト通知 */}
         {(copiedShareText || reorderFeedbackMsg) && (
           <div className="shiori-toast-banner" role="status" aria-live="polite">
-            <span className="toast-icon">{copiedShareText ? '📋' : '✨'}</span>
+            <span className="toast-icon">{copiedShareText ? '🔗' : '✨'}</span>
             <span className="toast-msg">
               {copiedShareText
-                ? 'LINE用の旅のしおりをコピーしました！トーク画面にそのまま貼り付けて友達と共有できます🎉'
+                ? '共有URLをコピーしました！LINE等に貼り付けると、相手も同じアプリ画面でしおり・割り勘・持ち物を開けます🎉'
                 : reorderFeedbackMsg}
             </span>
           </div>

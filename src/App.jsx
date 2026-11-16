@@ -14,6 +14,8 @@ import {
   generateFullPackingList,
 } from './travelData';
 import { usePersistentState, uid, defaultTripDate, calcEndDateFromStayDays } from './utils';
+import { parseTripFromUrl } from './utils/shareUrl';
+import { enrichTripSpotsWithCoordinates } from './api/spotSearchApi';
 
 const TAB_DEFS = [
   { id: 'search', label: 'たびさがし', longLabel: 'たびさがし', icon: 'compass', desc: '行先や寄り道カフェを探す' },
@@ -76,8 +78,62 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState(null);
   const showToast = (msg) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 2500);
+    setTimeout(() => setToastMsg(null), 3000);
   };
+
+  // 共有URL（?tripShare=...）からの自動インポート（しおり＋割り勘）
+  useEffect(() => {
+    try {
+      const sharedData = parseTripFromUrl();
+      if (sharedData) {
+        const { trip: sharedTrip, warikan: sharedWarikan, focusTab } = sharedData;
+
+        if (sharedTrip) {
+          setTrips((prevTrips) => {
+            const list = Array.isArray(prevTrips) ? [...prevTrips] : [];
+            const existingIdx = list.findIndex(
+              (t) => t.title === sharedTrip.title && t.date === sharedTrip.date
+            );
+            if (existingIdx !== -1) {
+              list[existingIdx] = { ...list[existingIdx], ...sharedTrip, id: list[existingIdx].id };
+              setActiveTripId(list[existingIdx].id);
+              return list;
+            } else {
+              const updated = [sharedTrip, ...list.slice(0, 4)];
+              setActiveTripId(sharedTrip.id);
+              return updated;
+            }
+          });
+        }
+
+        if (sharedWarikan) {
+          setMembers(sharedWarikan.members);
+          setExpenses(sharedWarikan.expenses);
+        }
+
+        const nextTab = focusTab || (sharedTrip ? 'shiori' : 'warikan');
+        setActiveTab(nextTab);
+
+        if (nextTab === 'warikan' && sharedWarikan) {
+          showToast(
+            `✨ 共有されたわりかんデータ（${sharedWarikan.members.length}人・${sharedWarikan.expenses.length}件）を開きました！`
+          );
+        } else if (sharedTrip && sharedWarikan) {
+          showToast(`✨ 共有されたしおり「${sharedTrip.title}」と割り勘データを開きました！`);
+        } else if (sharedTrip) {
+          showToast(`✨ 共有されたしおり「${sharedTrip.title}」を開きました！`);
+        }
+
+        // URLパラメータをクリアしてリロード時の多重インポート防止
+        if (window.history && window.history.replaceState) {
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to import shared data from URL:', err);
+    }
+  }, []);
 
   // しおりタブから「たびさがし」へ日程を指定して遷移するハンドラ
   const handleSwitchToSearchTab = (dayNum = 1) => {
@@ -112,6 +168,8 @@ export default function App() {
         name: '自宅・出発地',
         time: '08:30',
         memo: '集合・出発',
+        lat: 35.6812,
+        lng: 139.7671,
       },
       mainSpot: '',
       style: 'drive',
@@ -169,7 +227,11 @@ export default function App() {
   };
 
   // AIプランの一括インポート（旅程 ＆ 持ち物）
-  const handleImportAiPlan = (tripId, { itinerary, packingList, importMode, updateStayDays, newDaysCount, newTitle, newDestination, newDate, newEndDate }) => {
+  const handleImportAiPlan = async (tripId, { itinerary, packingList, importMode, updateStayDays, newDaysCount, newTitle, newDestination, newDate, newEndDate }) => {
+    // スポットの座標を自動補完（オフライン辞書＋オンライン検索）
+    const areaHint = newDestination || newTitle || '';
+    const enrichedItinerary = await enrichTripSpotsWithCoordinates(itinerary || [], areaHint);
+
     setTrips((prev) =>
       prev.map((t) => {
         if (t.id !== tripId) return t;
@@ -177,9 +239,9 @@ export default function App() {
         // 旅程の結合または置換
         let nextItinerary = t.itinerary || [];
         if (importMode === 'replace') {
-          nextItinerary = itinerary || [];
+          nextItinerary = enrichedItinerary || [];
         } else {
-          nextItinerary = [...nextItinerary, ...(itinerary || [])];
+          nextItinerary = [...nextItinerary, ...(enrichedItinerary || [])];
         }
 
         // 持ち物の重複チェック & マージ
@@ -451,6 +513,8 @@ export default function App() {
                 onUpdateItinerary={handleUpdateItinerary}
                 onSwitchToSearchTab={handleSwitchToSearchTab}
                 onImportAiPlan={handleImportAiPlan}
+                members={members}
+                expenses={expenses}
               />
             </div>
 
@@ -481,6 +545,7 @@ export default function App() {
               style={{ display: activeTab === 'warikan' ? 'block' : 'none' }}
             >
               <WarikanTab
+                currentTrip={currentTrip}
                 members={members}
                 expenses={expenses}
                 onAddMember={handleAddMember}

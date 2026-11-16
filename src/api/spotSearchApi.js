@@ -6,6 +6,8 @@
 // 4. 自然・風景・観光地の高画質スマートフォールバック
 // ------------------------------------------------------------
 
+import { MAIN_SPOTS, YORIMICHI_CANDIDATES } from '../travelData';
+
 // ユーザーが取得した楽天APIキーの初期デフォルト値
 const DEFAULT_RAKUTEN_APP_ID = '74e20a2f-7465-4c98-86e6-6f75788ba853';
 const DEFAULT_RAKUTEN_ACCESS_KEY = 'pk_yTV1Up1or1M35FIq88Rb2C6S5UtRODDeg7CbXtAr3zb';
@@ -1165,4 +1167,310 @@ export async function resolveGoogleMapsSpot(rawInput) {
     sourceType: 'gmaps',
   };
 }
+
+// ------------------------------------------------------------
+// 全国主要ランドマーク・駅・観光地の座標辞書（オフライン高速解決用）
+// ------------------------------------------------------------
+const PRESET_GEO_DICTIONARY = [
+  // 主要駅・空港・ハブ
+  { keywords: ['東京駅', '東京', '八重洲', '丸の内'], lat: 35.6812, lng: 139.7671 },
+  { keywords: ['新宿駅', '新宿'], lat: 35.6896, lng: 139.7006 },
+  { keywords: ['渋谷駅', '渋谷', 'ハチ公'], lat: 35.6580, lng: 139.7016 },
+  { keywords: ['池袋駅', '池袋'], lat: 35.7295, lng: 139.7109 },
+  { keywords: ['上野駅', '上野', '上野公園', '上野恩賜公園', '上野動物園'], lat: 35.7140, lng: 139.7741 },
+  { keywords: ['品川駅', '品川'], lat: 35.6284, lng: 139.7387 },
+  { keywords: ['羽田空港'], lat: 35.5494, lng: 139.7798 },
+  { keywords: ['成田空港'], lat: 35.7720, lng: 140.3929 },
+  { keywords: ['横浜駅', '横浜'], lat: 35.4658, lng: 139.6227 },
+  { keywords: ['みなとみらい', '赤レンガ倉庫', '横浜赤レンガ倉庫', '山下公園'], lat: 35.4526, lng: 139.6429 },
+  { keywords: ['鎌倉駅', '鎌倉', '鶴岡八幡宮', '小町通り'], lat: 35.3260, lng: 139.5564 },
+  { keywords: ['高徳院', '鎌倉大仏'], lat: 35.3168, lng: 139.5357 },
+  { keywords: ['江の島', '江ノ島', '江島神社'], lat: 35.3014, lng: 139.4811 },
+  { keywords: ['浅草寺', '浅草', '雷門', '仲見世'], lat: 35.7148, lng: 139.7967 },
+  { keywords: ['東京スカイツリー', 'スカイツリー', 'ソラマチ'], lat: 35.7100, lng: 139.8107 },
+  { keywords: ['東京タワー'], lat: 35.6586, lng: 139.7454 },
+  { keywords: ['明治神宮', '原宿'], lat: 35.6764, lng: 139.6993 },
+  { keywords: ['お台場', '台場', 'レインボーブリッジ'], lat: 35.6298, lng: 139.7770 },
+  { keywords: ['銀座', '有楽町'], lat: 35.6719, lng: 139.7648 },
+  { keywords: ['六本木', '六本木ヒルズ'], lat: 35.6628, lng: 139.7292 },
+  { keywords: ['高尾山'], lat: 35.6251, lng: 139.2437 },
+  { keywords: ['東京ディズニーランド', 'ディズニーランド', '舞浜'], lat: 35.6329, lng: 139.8804 },
+  { keywords: ['東京ディズニーシー', 'ディズニーシー'], lat: 35.6267, lng: 139.8851 },
+
+  // 京都・関西
+  { keywords: ['京都駅', '京都'], lat: 34.9858, lng: 135.7588 },
+  { keywords: ['清水寺', '産寧坂', '二年坂', '三年坂'], lat: 34.9949, lng: 135.7850 },
+  { keywords: ['伏見稲荷大社', '伏見稲荷', '千本鳥居'], lat: 34.9671, lng: 135.7727 },
+  { keywords: ['金閣寺', '鹿苑寺'], lat: 35.0394, lng: 135.7292 },
+  { keywords: ['銀閣寺', '慈照寺', '哲学の道'], lat: 35.0272, lng: 135.7982 },
+  { keywords: ['嵐山', '渡月橋', '天龍寺', '竹林の小径'], lat: 35.0129, lng: 135.6777 },
+  { keywords: ['祇園', '八坂神社', '花見小路'], lat: 35.0037, lng: 135.7785 },
+  { keywords: ['二条城'], lat: 35.0142, lng: 135.7482 },
+  { keywords: ['錦市場'], lat: 35.0050, lng: 135.7653 },
+  { keywords: ['下鴨神社', '鴨川'], lat: 35.0389, lng: 135.7731 },
+  { keywords: ['宇治', '平等院', '平等院鳳凰堂'], lat: 34.8893, lng: 135.8077 },
+  { keywords: ['大阪駅', '梅田', '大阪'], lat: 34.7024, lng: 135.4959 },
+  { keywords: ['なんば', '難波', '道頓堀', '心斎橋'], lat: 34.6687, lng: 135.5013 },
+  { keywords: ['ユニバーサル・スタジオ・ジャパン', 'USJ'], lat: 34.6654, lng: 135.4323 },
+  { keywords: ['大阪城', '大阪城公園'], lat: 34.6873, lng: 135.5262 },
+  { keywords: ['通天閣', '新世界'], lat: 34.6525, lng: 135.5063 },
+  { keywords: ['あべのハルカス', '天王寺'], lat: 34.6460, lng: 135.5133 },
+  { keywords: ['奈良公園', '東大寺', '春日大社', '奈良'], lat: 34.6851, lng: 135.8398 },
+  { keywords: ['神戸駅', '三宮', '神戸', 'メリケンパーク'], lat: 34.6946, lng: 135.1951 },
+  { keywords: ['有馬温泉'], lat: 34.7972, lng: 135.2472 },
+  { keywords: ['姫路城'], lat: 34.8394, lng: 134.6939 },
+
+  // 中部・甲信越・北陸
+  { keywords: ['名古屋駅', '名古屋'], lat: 35.1709, lng: 136.8815 },
+  { keywords: ['名古屋城'], lat: 35.1856, lng: 136.8991 },
+  { keywords: ['熱田神宮'], lat: 35.1259, lng: 136.9090 },
+  { keywords: ['ジブリパーク'], lat: 35.1708, lng: 137.0898 },
+  { keywords: ['伊勢神宮', '内宮', 'おかげ横丁', '伊勢'], lat: 34.4550, lng: 136.7258 },
+  { keywords: ['富士山', '富士山頂'], lat: 35.3606, lng: 138.7274 },
+  { keywords: ['富士急ハイランド'], lat: 35.4869, lng: 138.7806 },
+  { keywords: ['河口湖', '忍野八海'], lat: 35.5228, lng: 138.7454 },
+  { keywords: ['山中湖'], lat: 35.4192, lng: 138.8788 },
+  { keywords: ['箱根湯本', '箱根湯本温泉', '箱根'], lat: 35.2332, lng: 139.1038 },
+  { keywords: ['大涌谷'], lat: 35.2427, lng: 139.0195 },
+  { keywords: ['芦ノ湖', '箱根神社'], lat: 35.2047, lng: 139.0256 },
+  { keywords: ['熱海駅', '熱海', '熱海温泉', '熱海サンビーチ'], lat: 35.0940, lng: 139.0730 },
+  { keywords: ['伊東', '城ヶ崎海岸', '大室山'], lat: 34.9753, lng: 139.0949 },
+  { keywords: ['軽井沢駅', '軽井沢', '旧軽井沢', 'ハルニレテラス'], lat: 36.3575, lng: 138.6358 },
+  { keywords: ['白糸の滝'], lat: 36.4172, lng: 138.6015 },
+  { keywords: ['草津温泉', '湯畑', '草津'], lat: 36.6206, lng: 138.5960 },
+  { keywords: ['伊香保温泉', '伊香保石段街'], lat: 36.4988, lng: 138.9189 },
+  { keywords: ['日光駅', '日光', '日光東照宮'], lat: 36.7580, lng: 139.5989 },
+  { keywords: ['中禅寺湖', '華厳の滝'], lat: 36.7412, lng: 139.4820 },
+  { keywords: ['金沢駅', '金沢'], lat: 36.5780, lng: 136.6478 },
+  { keywords: ['兼六園'], lat: 36.5621, lng: 136.6627 },
+  { keywords: ['金沢21世紀美術館', '21世紀美術館'], lat: 36.5609, lng: 136.6582 },
+  { keywords: ['近江町市場'], lat: 36.5720, lng: 136.6560 },
+  { keywords: ['ひがし茶屋街'], lat: 36.5720, lng: 136.6660 },
+  { keywords: ['白川郷'], lat: 36.2562, lng: 136.9066 },
+  { keywords: ['飛騨高山', '高山'], lat: 36.1460, lng: 137.2522 },
+  { keywords: ['上高地', '河童橋', '大正池'], lat: 36.2489, lng: 137.6377 },
+  { keywords: ['松本城', '松本駅', '松本'], lat: 36.2388, lng: 137.9691 },
+  { keywords: ['善光寺', '長野駅', '長野'], lat: 36.6617, lng: 138.1877 },
+  { keywords: ['白馬', '八方尾根'], lat: 36.6982, lng: 137.8617 },
+
+  // 東北・北海道
+  { keywords: ['仙台駅', '仙台'], lat: 38.2601, lng: 140.8824 },
+  { keywords: ['松島'], lat: 38.3712, lng: 141.0664 },
+  { keywords: ['盛岡駅', '盛岡'], lat: 39.7036, lng: 141.1367 },
+  { keywords: ['青森駅', '青森'], lat: 40.8299, lng: 140.7337 },
+  { keywords: ['奥入瀬渓流', '十和田湖'], lat: 40.5284, lng: 140.9634 },
+  { keywords: ['札幌駅', '札幌', '大通公園', 'すすきの'], lat: 43.0687, lng: 141.3508 },
+  { keywords: ['小樽駅', '小樽', '小樽運河'], lat: 43.1997, lng: 141.0020 },
+  { keywords: ['函館駅', '函館', '函館山', '五稜郭'], lat: 41.7738, lng: 140.7264 },
+  { keywords: ['旭川駅', '旭川', '旭山動物園'], lat: 43.7684, lng: 142.4800 },
+  { keywords: ['富良野', '美瑛', '青い池'], lat: 43.4934, lng: 142.6141 },
+  { keywords: ['登別温泉'], lat: 42.5113, lng: 141.1444 },
+  { keywords: ['洞爺湖'], lat: 42.6000, lng: 140.8500 },
+
+  // 中国・四国・九州・沖縄
+  { keywords: ['広島駅', '広島', '原爆ドーム', '平和記念公園'], lat: 34.3955, lng: 132.4536 },
+  { keywords: ['宮島', '厳島神社'], lat: 34.2959, lng: 132.3197 },
+  { keywords: ['出雲大社', '出雲'], lat: 35.3995, lng: 132.6859 },
+  { keywords: ['倉敷美観地区', '倉敷'], lat: 34.5953, lng: 133.7719 },
+  { keywords: ['道後温泉', '松山'], lat: 33.8521, lng: 132.7865 },
+  { keywords: ['金刀比羅宮', 'こんぴらさん'], lat: 34.1848, lng: 133.8188 },
+  { keywords: ['博多駅', '博多', '福岡', '天神'], lat: 33.5902, lng: 130.4207 },
+  { keywords: ['太宰府天満宮', '太宰府'], lat: 33.5215, lng: 130.5349 },
+  { keywords: ['別府温泉', '別府地獄めぐり', '別府'], lat: 33.3156, lng: 131.4770 },
+  { keywords: ['由布院', '湯布院', '金鱗湖'], lat: 33.2647, lng: 131.3653 },
+  { keywords: ['熊本城', '熊本'], lat: 32.8062, lng: 130.7058 },
+  { keywords: ['阿蘇山', '草千里ヶ浜', '阿蘇'], lat: 32.8837, lng: 131.0505 },
+  { keywords: ['長崎駅', '長崎', 'グラバー園'], lat: 32.7530, lng: 129.8707 },
+  { keywords: ['那覇空港', '那覇', '国際通り'], lat: 26.2153, lng: 127.6853 },
+  { keywords: ['美ら海水族館'], lat: 26.6943, lng: 127.8779 },
+  { keywords: ['首里城'], lat: 26.2170, lng: 127.7195 },
+  { keywords: ['古宇利島'], lat: 26.7022, lng: 128.0267 },
+  { keywords: ['宮古島'], lat: 24.7981, lng: 125.2811 },
+  { keywords: ['石垣島'], lat: 24.3448, lng: 124.1572 },
+];
+
+/**
+ * ローカル辞書からスポット名に対応する経緯度を高速検索
+ */
+export function findCoordinatesInLocalDictionary(spotName) {
+  if (!spotName || typeof spotName !== 'string') return null;
+  const clean = spotName
+    .replace(/^[\d\.\s・\-—]+/, '')
+    .replace(/[（\(【\[].*?[）\)】\]]/g, '')
+    .trim()
+    .toLowerCase();
+  if (!clean) return null;
+
+  // 1. 完全一致またはキーワード一致
+  for (const item of PRESET_GEO_DICTIONARY) {
+    for (const kw of item.keywords) {
+      const lkw = kw.toLowerCase();
+      if (clean === lkw || clean.includes(lkw) || (lkw.length >= 3 && lkw.includes(clean))) {
+        return { lat: item.lat, lng: item.lng, name: kw };
+      }
+    }
+  }
+
+  // 2. MAIN_SPOTS からの一致
+  if (Array.isArray(MAIN_SPOTS)) {
+    for (const ms of MAIN_SPOTS) {
+      const lms = (ms.name || '').toLowerCase();
+      if (clean === lms || clean.includes(lms) || (lms.length >= 3 && lms.includes(clean))) {
+        return { lat: ms.lat, lng: ms.lng, name: ms.name };
+      }
+    }
+  }
+
+  // 3. YORIMICHI_CANDIDATES からの一致
+  if (Array.isArray(YORIMICHI_CANDIDATES)) {
+    for (const yc of YORIMICHI_CANDIDATES) {
+      const lyc = (yc.name || '').toLowerCase();
+      if (clean === lyc || clean.includes(lyc) || (lyc.length >= 3 && lyc.includes(clean))) {
+        return { lat: yc.lat, lng: yc.lng, name: yc.name };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * スポット名から実在する経緯度（lat, lng）を特定する関数
+ * 1. オフライン高速辞書
+ * 2. travelData の MAIN_SPOTS & YORIMICHI_CANDIDATES
+ * 3. OpenStreetMap (Nominatim API) 検索
+ * 4. Wikipedia GeoSearch
+ * 5. エリアヒントに基づくフォールバック
+ */
+export async function resolveSpotCoordinates(rawName, areaHint = '') {
+  if (!rawName || typeof rawName !== 'string') return null;
+
+  const cleanName = rawName
+    .replace(/^[\d\.\s・\-—]+/, '')
+    .replace(/[（\(【\[].*?[）\)】\]]/g, '')
+    .replace(/\s*-\s*.*$/, '')
+    .trim();
+
+  if (!cleanName) return null;
+
+  // 1. ローカル辞書検索（0ms 即時マッチ）
+  const localMatch = findCoordinatesInLocalDictionary(cleanName);
+  if (localMatch) {
+    return { lat: localMatch.lat, lng: localMatch.lng, source: 'dictionary' };
+  }
+
+  // 2. Nominatim検索（単体）
+  try {
+    const osmItems = await searchFromNominatim(cleanName);
+    if (osmItems.length > 0) {
+      const lat = parseFloat(osmItems[0].lat);
+      const lng = parseFloat(osmItems[0].lon);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { lat, lng, source: 'osm' };
+      }
+    }
+  } catch {}
+
+  // 3. エリアヒント（例: "京都", "箱根"）がある場合、組み合わせ検索
+  const cleanArea = (areaHint || '')
+    .replace(/旅行|ドライブ|観光|しおり|女子旅|ひとり旅|秋の|春の|夏の|冬の/g, '')
+    .trim();
+
+  if (cleanArea && cleanArea.length >= 2 && !cleanName.includes(cleanArea)) {
+    try {
+      const comboQuery = `${cleanArea} ${cleanName}`;
+      const osmItems = await searchFromNominatim(comboQuery);
+      if (osmItems.length > 0) {
+        const lat = parseFloat(osmItems[0].lat);
+        const lng = parseFloat(osmItems[0].lon);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat, lng, source: 'osm-combo' };
+        }
+      }
+    } catch {}
+  }
+
+  // 4. Wikipedia GeoOnly検索
+  try {
+    const wikiItems = await searchWikiGeoOnly(cleanName);
+    if (wikiItems.length > 0 && typeof wikiItems[0].lat === 'number') {
+      return { lat: wikiItems[0].lat, lng: wikiItems[0].lng, source: 'wikipedia' };
+    }
+  } catch {}
+
+  // 5. エリアヒント単体の座標をフォールバックとして取得
+  if (cleanArea && cleanArea.length >= 2) {
+    const areaMatch = findCoordinatesInLocalDictionary(cleanArea);
+    if (areaMatch) {
+      const offsetLat = (Math.random() - 0.5) * 0.015;
+      const offsetLng = (Math.random() - 0.5) * 0.015;
+      return {
+        lat: areaMatch.lat + offsetLat,
+        lng: areaMatch.lng + offsetLng,
+        source: 'area-fallback',
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 旅程リスト（itinerary）全体のスポットを検査し、未設定の座標を自動補完する関数
+ */
+export async function enrichTripSpotsWithCoordinates(itinerary, areaHint = '') {
+  if (!Array.isArray(itinerary) || itinerary.length === 0) return itinerary;
+
+  let hasChanges = false;
+  const result = [...itinerary];
+
+  // まず即時辞書マッチで取れるものを一括解決
+  for (let i = 0; i < result.length; i++) {
+    const spot = result[i];
+    const hasValidCoords =
+      typeof spot.lat === 'number' &&
+      typeof spot.lng === 'number' &&
+      !isNaN(spot.lat) &&
+      !isNaN(spot.lng);
+
+    if (!hasValidCoords && spot.name) {
+      const instantMatch = findCoordinatesInLocalDictionary(spot.name);
+      if (instantMatch) {
+        result[i] = {
+          ...spot,
+          lat: instantMatch.lat,
+          lng: instantMatch.lng,
+        };
+        hasChanges = true;
+      }
+    }
+  }
+
+  // 辞書で取れなかったものをオンライン検索（レート制限配慮で少し間隔を置く）
+  for (let i = 0; i < result.length; i++) {
+    const spot = result[i];
+    const hasValidCoords =
+      typeof spot.lat === 'number' &&
+      typeof spot.lng === 'number' &&
+      !isNaN(spot.lat) &&
+      !isNaN(spot.lng);
+
+    if (!hasValidCoords && spot.name) {
+      const coords = await resolveSpotCoordinates(spot.name, areaHint);
+      if (coords) {
+        result[i] = {
+          ...spot,
+          lat: coords.lat,
+          lng: coords.lng,
+        };
+        hasChanges = true;
+      }
+      // 短時間の待機
+      await new Promise((r) => setTimeout(r, 60));
+    }
+  }
+
+  return hasChanges ? result : itinerary;
+}
+
 

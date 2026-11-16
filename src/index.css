@@ -1703,38 +1703,23 @@ select:focus {
 }
 
 /* カスタムLeafletピン */
-.custom-leaf-pin {
-  background: transparent;
-  border: 0;
+.custom-leaf-pin,
+.leaflet-div-icon.custom-leaf-pin {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
-.leaf-pin-inner {
-  width: 34px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--terracotta);
-  color: #fff;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
-  border: 2px solid #ffffff;
+.custom-leaf-pin svg {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.28));
+  transition: transform 0.18s ease;
 }
 
-.leaf-pin-inner.pin-start {
-  background: var(--sage);
-}
-
-.leaf-pin-inner.pin-goal {
-  background: #c07a38;
-}
-
-.leaf-pin-badge {
-  transform: rotate(45deg);
-  font-size: 0.8rem;
-  font-weight: 800;
-  line-height: 1;
+.custom-leaf-pin:hover svg {
+  transform: scale(1.12);
 }
 
 /* ポップアップ */
@@ -7008,12 +6993,13 @@ input:checked + .toggle-slider::after {
   font-weight: 700;
   font-size: 0.8rem;
   border-radius: var(--radius-pill, 9999px);
+  gap: 5px;
 }
 
 .line-share-head-btn:hover {
-  background: #06c755;
+  background: var(--primary, #2d6a4f);
   color: #ffffff;
-  border-color: #06c755;
+  border-color: var(--primary, #2d6a4f);
 }
 
 /* トースト通知バナー */

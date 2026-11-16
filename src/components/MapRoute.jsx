@@ -4,6 +4,62 @@ import 'leaflet/dist/leaflet.css';
 import Icon from './Icon';
 import { getGoogleMapsNavUrl } from '../utils';
 
+/**
+ * 出発地用のSVGピン（🏠 ホーム）
+ */
+function createStartPinIcon() {
+  const svg = `
+    <svg width="34" height="42" viewBox="0 0 34 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="start-pin-shadow" x="0" y="0" width="34" height="42" filterUnits="userSpaceOnUse">
+          <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.25"/>
+        </filter>
+      </defs>
+      <g filter="url(#start-pin-shadow)">
+        <path d="M17 38C17 38 30 24 30 14C30 6.82 24.18 1 17 1C9.82 1 4 6.82 4 14C4 24 17 38 17 38Z" fill="#4a7c59" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="17" cy="14" r="9" fill="#ffffff"/>
+        <text x="17" y="18" text-anchor="middle" font-size="11" font-family="-apple-system, BlinkMacSystemFont, sans-serif">🏠</text>
+      </g>
+    </svg>
+  `;
+  return L.divIcon({
+    className: 'custom-leaf-pin',
+    html: svg,
+    iconSize: [34, 42],
+    iconAnchor: [17, 39],
+    popupAnchor: [0, -36],
+  });
+}
+
+/**
+ * 立ち寄りスポット用のSVGピン（番号付き）
+ */
+function createSpotPinIcon(number, isLast) {
+  const fillColor = isLast ? '#b46522' : '#c26549';
+  const filterId = `spot-pin-shadow-${number}-${isLast ? 'last' : 'mid'}`;
+  const svg = `
+    <svg width="34" height="42" viewBox="0 0 34 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="${filterId}" x="0" y="0" width="34" height="42" filterUnits="userSpaceOnUse">
+          <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.25"/>
+        </filter>
+      </defs>
+      <g filter="url(#${filterId})">
+        <path d="M17 38C17 38 30 24 30 14C30 6.82 24.18 1 17 1C9.82 1 4 6.82 4 14C4 24 17 38 17 38Z" fill="${fillColor}" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="17" cy="14" r="9" fill="#ffffff"/>
+        <text x="17" y="18.5" text-anchor="middle" font-size="12" font-weight="bold" fill="${fillColor}" font-family="-apple-system, BlinkMacSystemFont, sans-serif">${number}</text>
+      </g>
+    </svg>
+  `;
+  return L.divIcon({
+    className: 'custom-leaf-pin',
+    html: svg,
+    iconSize: [34, 42],
+    iconAnchor: [17, 39],
+    popupAnchor: [0, -36],
+  });
+}
+
 export default function MapRoute({ itinerary = [], startPoint, title = '旅のルート' }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -18,18 +74,24 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
   const renderMarkersAndRoute = () => {
     const map = mapInstanceRef.current;
     const layerGroup = layerGroupRef.current;
-    if (!map || !layerGroup) return;
+    const container = mapContainerRef.current;
+    if (!map || !layerGroup || !container) return;
+
+    // コンテナが非表示（サイズ0）の場合は無理にfitBounds等を計算しない（NaNエラー防止）
+    if (container.clientWidth === 0 || container.clientHeight === 0) return;
 
     layerGroup.clearLayers();
 
     const validSpots = (itinerary || []).filter(
-      (s) => typeof s.lat === 'number' && typeof s.lng === 'number'
+      (s) => typeof s.lat === 'number' && typeof s.lng === 'number' && !isNaN(s.lat) && !isNaN(s.lng)
     );
 
     const hasStart =
       startPoint &&
       typeof startPoint.lat === 'number' &&
-      typeof startPoint.lng === 'number';
+      typeof startPoint.lng === 'number' &&
+      !isNaN(startPoint.lat) &&
+      !isNaN(startPoint.lng);
 
     const allCoords = [];
     if (hasStart) {
@@ -38,32 +100,20 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
     validSpots.forEach((s) => allCoords.push([s.lat, s.lng]));
 
     if (allCoords.length === 0) {
-      map.setView([35.3, 138.8], 9);
+      map.setView([35.6812, 139.7671], 10);
       return;
     }
 
     // 1. 出発地ピン（🏠 アイコン）
     if (hasStart) {
-      const startCustomIcon = L.divIcon({
-        className: 'custom-leaf-pin',
-        html: `
-          <div class="leaf-pin-inner pin-start">
-            <span class="leaf-pin-badge">🏠</span>
-          </div>
-        `,
-        iconSize: [34, 42],
-        iconAnchor: [17, 42],
-        popupAnchor: [0, -38],
-      });
-
       const startMarker = L.marker([startPoint.lat, startPoint.lng], {
-        icon: startCustomIcon,
+        icon: createStartPinIcon(),
       });
 
       const startPopupHtml = `
         <div class="map-popup-card">
           <div class="popup-head">
-            <span class="popup-num" style="background:#587b66">🏠</span>
+            <span class="popup-num" style="background:#4a7c59">🏠</span>
             <strong class="popup-title">${startPoint.name || '出発地'}</strong>
           </div>
           <p class="popup-time">⏰ ${startPoint.time || '08:30'} 出発</p>
@@ -87,30 +137,18 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
       layerGroup.addLayer(polyline);
     }
 
-    // 3. 立ち寄りスポットのピン（番号付きボタニカルピン）
+    // 3. 立ち寄りスポットのピン（SVG番号付きピン）
     validSpots.forEach((spot, idx) => {
       const isLast = idx === validSpots.length - 1 && validSpots.length > 1;
-      const pinColorClass = isLast ? 'pin-goal' : 'pin-mid';
-
-      const customIcon = L.divIcon({
-        className: 'custom-leaf-pin',
-        html: `
-          <div class="leaf-pin-inner ${pinColorClass}">
-            <span class="leaf-pin-badge">${idx + 1}</span>
-          </div>
-        `,
-        iconSize: [34, 42],
-        iconAnchor: [17, 42],
-        popupAnchor: [0, -38],
-      });
-
       const navUrl = getGoogleMapsNavUrl(spot.name, spot.lat, spot.lng);
-      const marker = L.marker([spot.lat, spot.lng], { icon: customIcon });
+      const marker = L.marker([spot.lat, spot.lng], {
+        icon: createSpotPinIcon(idx + 1, isLast),
+      });
 
       const popupHtml = `
         <div class="map-popup-card">
           <div class="popup-head">
-            <span class="popup-num">${idx + 1}</span>
+            <span class="popup-num" style="background:${isLast ? '#b46522' : '#c26549'}">${idx + 1}</span>
             <strong class="popup-title">${spot.name}</strong>
           </div>
           ${spot.time ? `<p class="popup-time">⏰ ${spot.time}〜 (約${spot.stayMin || 45}分)</p>` : ''}
@@ -134,78 +172,118 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
       map.setView(allCoords[0], 13);
     } else {
       const bounds = L.latLngBounds(allCoords);
-      map.fitBounds(bounds, {
-        padding: [45, 45],
-        maxZoom: 14,
-      });
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, {
+          padding: [45, 45],
+          maxZoom: 14,
+        });
+      }
     }
   };
 
-  // 地図の初回初期化（DOM上に一度だけマウント）
+  // 地図の初期化と開閉制御（開かれた時に初めて正しく初期化・描画する）
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    if (!isOpen) return;
+    if (!mapContainerRef.current) return;
 
-    try {
-      const map = L.map(mapContainerRef.current, {
-        zoomControl: true,
-        attributionControl: false, // 右下のOpenStreetMapクレジット表記を非表示
-        scrollWheelZoom: false,
-      });
+    // まだ地図インスタンスがない場合は新規初期化
+    if (!mapInstanceRef.current) {
+      try {
+        if (mapContainerRef.current._leaflet_id) {
+          delete mapContainerRef.current._leaflet_id;
+        }
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '',
-      }).addTo(map);
+        const map = L.map(mapContainerRef.current, {
+          zoomControl: true,
+          attributionControl: false, // 右下のOpenStreetMapクレジット表記を非表示
+          scrollWheelZoom: false,
+        });
 
-      const layerGroup = L.layerGroup().addTo(map);
-      layerGroupRef.current = layerGroup;
-      mapInstanceRef.current = map;
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 18,
+          attribution: '',
+        }).addTo(map);
 
-      // 初回ピン描画
-      renderMarkersAndRoute();
-    } catch (err) {
-      console.warn('Leaflet map initialization failed:', err);
-      setMapError(true);
+        const layerGroup = L.layerGroup().addTo(map);
+        layerGroupRef.current = layerGroup;
+        mapInstanceRef.current = map;
+      } catch (err) {
+        console.warn('Leaflet map initialization failed:', err);
+        setMapError(true);
+        return;
+      }
     }
 
+    // 表示直後とアニメーション後のタイミングで確実にサイズ再計算＆ピン描画
+    const timer1 = setTimeout(() => {
+      const map = mapInstanceRef.current;
+      if (map) {
+        map.invalidateSize();
+        renderMarkersAndRoute();
+      }
+    }, 60);
+
+    const timer2 = setTimeout(() => {
+      const map = mapInstanceRef.current;
+      if (map) {
+        map.invalidateSize();
+        renderMarkersAndRoute();
+      }
+    }, 240);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [isOpen]);
+
+  // スポットやルート更新時にマーカーと点線ポリラインを再描画
+  useEffect(() => {
+    if (isOpen && mapInstanceRef.current) {
+      renderMarkersAndRoute();
+    }
+  }, [itinerary, startPoint, isOpen]);
+
+  // コンテナサイズ変化（スマホ画面回転やリサイズなど）の自動検知
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          const map = mapInstanceRef.current;
+          if (map) {
+            map.invalidateSize();
+          }
+        }
+      }
+    });
+
+    resizeObserver.observe(mapContainerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  // コンポーネント完全アンマウント時の後片付け
+  useEffect(() => {
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        layerGroupRef.current = null;
       }
     };
   }, []);
 
-  // スポットやルート更新時にマーカーと点線ポリラインを再描画
-  useEffect(() => {
-    renderMarkersAndRoute();
-  }, [itinerary, startPoint]);
-
-  // 開閉トグルハンドラ（開いた瞬間に地図のサイズ再計算＆全域フィット＆ピン再確認）
   const handleToggle = () => {
-    setIsOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        // 表示直後とアニメーション完了後の2回 invalidateSize と描画を行う
-        setTimeout(() => {
-          const map = mapInstanceRef.current;
-          if (map) {
-            map.invalidateSize();
-            renderMarkersAndRoute();
-          }
-        }, 60);
-
-        setTimeout(() => {
-          const map = mapInstanceRef.current;
-          if (map) {
-            map.invalidateSize();
-            renderMarkersAndRoute();
-          }
-        }, 220);
-      }
-      return next;
-    });
+    setIsOpen((prev) => !prev);
   };
+
+  const validSpots = (itinerary || []).filter(
+    (s) => typeof s.lat === 'number' && typeof s.lng === 'number' && !isNaN(s.lat) && !isNaN(s.lng)
+  );
 
   return (
     <div className={`map-route-wrapper ${isOpen ? 'is-open' : 'is-collapsed'}`}>
@@ -245,7 +323,7 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
         </div>
       </button>
 
-      {/* 地図エリア（DOMは常に保持し、displayで切り替えることでLeafletインスタンスを破損させない） */}
+      {/* 地図エリア（DOMは常に保持し、displayで切り替え） */}
       <div
         className="map-collapsible-content"
         style={{ display: isOpen ? 'block' : 'none' }}
@@ -270,7 +348,9 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
           {itinerary.length > 0 && (
             <div className="map-bottom-bar">
               <span className="map-bottom-info">
-                💡 ピンをタップするとスポット詳細とGoogleマップナビボタンが表示されます
+                {validSpots.length > 0 || (startPoint && typeof startPoint.lat === 'number')
+                  ? '💡 ピンをタップするとスポット詳細とGoogleマップナビボタンが表示されます'
+                  : '📍 スポットの経緯度を取得しています…'}
               </span>
             </div>
           )}
