@@ -6,6 +6,14 @@ import { generateShareMessageWithUrl } from '../utils/shareUrl';
 
 export default function WarikanTab({
   currentTrip,
+  warikanBooks = [],
+  activeWarikanId,
+  currentWarikanBook,
+  onSelectWarikanBook,
+  onCreateWarikanBook,
+  onRenameWarikanBook,
+  onDeleteWarikanBook,
+  onResetWarikanExpenses,
   members,
   expenses,
   onAddMember,
@@ -21,7 +29,16 @@ export default function WarikanTab({
   const [formError, setFormError] = useState('');
   const [copiedWarikanUrl, setCopiedWarikanUrl] = useState(false);
 
-  // 共有URLインポート等によるメンバー入れ替え時の選択状態同期
+  // わりかん帳の作成・名前変更・削除・リセット用ステート
+  const [showCreateBookModal, setShowCreateBookModal] = useState(false);
+  const [newBookTitle, setNewBookTitle] = useState('');
+  const [copyMembersOnCreate, setCopyMembersOnCreate] = useState(true);
+  const [isRenamingBook, setIsRenamingBook] = useState(false);
+  const [renameBookInput, setRenameBookInput] = useState('');
+  const [confirmDeleteBook, setConfirmDeleteBook] = useState(null);
+  const [confirmResetBook, setConfirmResetBook] = useState(null);
+
+  // 共有URLインポート等・帳簿切替によるメンバー入れ替え時の選択状態同期
   useEffect(() => {
     const validIds = new Set(members.map((m) => m.id));
     if (!validIds.has(payerId)) {
@@ -31,11 +48,39 @@ export default function WarikanTab({
       const filtered = prev.filter((id) => validIds.has(id));
       return filtered.length > 0 ? filtered : members.map((m) => m.id);
     });
-  }, [members]);
+    setFormError('');
+  }, [members, activeWarikanId]);
+
+  const handleOpenCreateBookModal = () => {
+    setNewBookTitle('');
+    setCopyMembersOnCreate(members.length > 0);
+    setShowCreateBookModal(true);
+  };
+
+  const handleCreateBookSubmit = (e) => {
+    e.preventDefault();
+    onCreateWarikanBook?.({
+      title: newBookTitle.trim(),
+      copyMembers: copyMembersOnCreate,
+    });
+    setShowCreateBookModal(false);
+    setNewBookTitle('');
+  };
+
+  const handleRenameSubmit = (e) => {
+    e.preventDefault();
+    if (!renameBookInput.trim() || !currentWarikanBook) return;
+    onRenameWarikanBook?.(currentWarikanBook.id, renameBookInput.trim());
+    setIsRenamingBook(false);
+  };
 
   // わりかんURLコピーハンドラ
   const handleCopyWarikanShareUrl = async () => {
-    const text = generateShareMessageWithUrl(currentTrip, { members, expenses }, 'warikan');
+    const text = generateShareMessageWithUrl(
+      currentTrip,
+      { title: currentWarikanBook?.title, members, expenses },
+      'warikan'
+    );
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
@@ -136,6 +181,124 @@ export default function WarikanTab({
 
   return (
     <div className="warikan-tab-page">
+      {/* わりかん帳切り替え・保存・作成バー */}
+      <section className="card card-trip-switcher">
+        <div className="switcher-top">
+          <div className="switcher-left-block">
+            <div className="switcher-main-heading">
+              <Icon name="wallet" size={18} />
+              <span className="switcher-title-text">わりかん帳</span>
+            </div>
+            <span className="badge badge-sage sm switcher-badge">
+              保存中: {warikanBooks.length}件
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-terracotta btn-sm switcher-add-btn"
+            onClick={handleOpenCreateBookModal}
+          >
+            <Icon name="plus" size={14} /> 新しいわりかんを作成
+          </button>
+        </div>
+
+        <div className="trip-tabs-scroll">
+          {warikanBooks.map((book) => {
+            const bookTotal = (book.expenses || []).reduce(
+              (sum, e) => sum + (Number(e.amount) || 0),
+              0
+            );
+            return (
+              <button
+                key={book.id}
+                type="button"
+                className={`trip-tab-pill ${book.id === currentWarikanBook?.id ? 'is-active' : ''}`}
+                onClick={() => {
+                  setIsRenamingBook(false);
+                  onSelectWarikanBook?.(book.id);
+                }}
+              >
+                <span className="tab-pill-icon">💰</span>
+                <span className="tab-pill-title">{book.title}</span>
+                <span className="tab-pill-date">{yen(bookTotal)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 選択中のわりかん帳の名前編集・リセット・削除コントロール */}
+        {currentWarikanBook && (
+          <div className="warikan-book-bar">
+            {isRenamingBook ? (
+              <form onSubmit={handleRenameSubmit} className="warikan-rename-form">
+                <input
+                  type="text"
+                  value={renameBookInput}
+                  onChange={(e) => setRenameBookInput(e.target.value)}
+                  placeholder="例: 日光ドライブ、ゼミ飲み会"
+                  className="warikan-rename-input"
+                  autoFocus
+                  required
+                />
+                <div className="warikan-rename-actions">
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-xs"
+                    onClick={() => setIsRenamingBook(false)}
+                  >
+                    キャンセル
+                  </button>
+                  <button type="submit" className="btn btn-sage btn-xs">
+                    保存
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className="warikan-book-meta">
+                  <span className="warikan-book-current-label">選択中:</span>
+                  <strong className="warikan-book-current-name">{currentWarikanBook.title}</strong>
+                </div>
+                <div className="warikan-book-actions">
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-xs"
+                    onClick={() => {
+                      setRenameBookInput(currentWarikanBook.title);
+                      setIsRenamingBook(true);
+                    }}
+                    title="このわりかん帳の名前を変更"
+                  >
+                    <Icon name="edit" size={13} /> 名前変更
+                  </button>
+                  {expenses.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-subtle btn-xs"
+                      onClick={() => setConfirmResetBook(currentWarikanBook)}
+                      title="メンバーを残して支出記録だけゼロに戻す（同じメンバーでリピート時に便利）"
+                    >
+                      🔄 支出リセット
+                    </button>
+                  )}
+                  {warikanBooks.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost-danger btn-xs"
+                      onClick={() => setConfirmDeleteBook(currentWarikanBook)}
+                      title="このわりかん帳を削除"
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+
       {/* ヒーロー紹介 */}
       <section className="botanical-hero-card">
         <div className="hero-text">
@@ -525,6 +688,154 @@ export default function WarikanTab({
           </ul>
         </div>
       </section>
+
+      {/* 新しいわりかん帳の作成モーダル */}
+      {showCreateBookModal && (
+        <div className="modal-backdrop" onClick={() => setShowCreateBookModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <h3>新しいわりかん帳を作成</h3>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setShowCreateBookModal(false)}
+                aria-label="閉じる"
+              >
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateBookSubmit} className="modal-form">
+              <label className="field-block">
+                <span className="field-label">わりかんの名前</span>
+                <input
+                  type="text"
+                  value={newBookTitle}
+                  onChange={(e) => setNewBookTitle(e.target.value)}
+                  placeholder="例: 日光ドライブ、ゼミ飲み会、第2回旅行"
+                  autoFocus
+                />
+              </label>
+
+              {members.length > 0 && (
+                <label className="warikan-copy-members-check">
+                  <input
+                    type="checkbox"
+                    checked={copyMembersOnCreate}
+                    onChange={(e) => setCopyMembersOnCreate(e.target.checked)}
+                  />
+                  <span>
+                    今のメンバー（{members.map((m) => m.name).join('・')}）を引き継ぐ
+                    <small>※ 支出記録は0件のまっさらな状態で作成されます</small>
+                  </span>
+                </label>
+              )}
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowCreateBookModal(false)}
+                >
+                  キャンセル
+                </button>
+                <button type="submit" className="btn btn-sage">
+                  <Icon name="plus" size={16} /> 作成する
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* わりかん帳の削除確認モーダル */}
+      {confirmDeleteBook && (
+        <div className="modal-backdrop" onClick={() => setConfirmDeleteBook(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h3>わりかん帳の削除確認</h3>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setConfirmDeleteBook(null)}
+                aria-label="閉じる"
+              >
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+            <p style={{ margin: '8px 0 18px', fontSize: '0.94rem', lineHeight: 1.6, color: 'var(--text)' }}>
+              「<strong>{confirmDeleteBook.title}</strong>」を削除しますか？<br />
+              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                ※ メンバーと支出記録もすべて消去されます（元に戻せません）。
+              </span>
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setConfirmDeleteBook(null)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="btn btn-terracotta"
+                onClick={() => {
+                  const targetId = confirmDeleteBook.id;
+                  setConfirmDeleteBook(null);
+                  onDeleteWarikanBook?.(targetId);
+                }}
+              >
+                <Icon name="trash" size={15} /> 削除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 支出リセット確認モーダル */}
+      {confirmResetBook && (
+        <div className="modal-backdrop" onClick={() => setConfirmResetBook(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h3>支出記録のリセット確認</h3>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setConfirmResetBook(null)}
+                aria-label="閉じる"
+              >
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+            <p style={{ margin: '8px 0 18px', fontSize: '0.94rem', lineHeight: 1.6, color: 'var(--text)' }}>
+              「<strong>{confirmResetBook.title}</strong>」の支出記録をすべてリセットしますか？<br />
+              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                ※ メンバーはそのまま残るので、同じメンバーでのリピート利用に便利です。
+              </span>
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setConfirmResetBook(null)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="btn btn-sage"
+                onClick={() => {
+                  const targetId = confirmResetBook.id;
+                  setConfirmResetBook(null);
+                  onResetWarikanExpenses?.(targetId);
+                }}
+              >
+                🔄 リセットする
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

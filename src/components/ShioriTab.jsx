@@ -52,6 +52,7 @@ export default function ShioriTab({
   onUpdateItinerary,
   onSwitchToSearchTab,
   onImportAiPlan,
+  warikanTitle = '',
   members = [],
   expenses = [],
 }) {
@@ -73,7 +74,11 @@ export default function ShioriTab({
 
   // 共有URLコピーハンドラ（しおり＋割り勘データを同時共有）
   const handleCopyShareUrl = async () => {
-    const text = generateShareMessageWithUrl(currentTrip, { members, expenses }, 'shiori');
+    const text = generateShareMessageWithUrl(
+      currentTrip,
+      { title: warikanTitle, members, expenses },
+      'shiori'
+    );
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);

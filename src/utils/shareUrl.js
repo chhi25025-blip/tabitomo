@@ -49,6 +49,9 @@ function packTripData(trip, warikan = null, focusTab = 'shiori') {
 
   // 割り勘メンバー＆支出記録をインデックス参照で軽量パック
   if (warikan && Array.isArray(warikan.members) && warikan.members.length > 0) {
+    if (warikan.title) {
+      packed.wt = warikan.title;
+    }
     const memberIdxMap = new Map();
     packed.wm = warikan.members.map((mem, idx) => {
       memberIdxMap.set(mem.id, idx);
@@ -140,6 +143,7 @@ function unpackTripData(packed) {
       date: exp.d || '',
     }));
     warikan = {
+      title: packed.wt || (trip?.title ? `${trip.title}の精算` : '共有されたわりかん'),
       members: unpackedMembers,
       expenses: unpackedExpenses,
     };
@@ -218,8 +222,8 @@ export function generateShareMessageWithUrl(trip, warikan = null, focusTab = 'sh
   if (focusTab === 'warikan') {
     const memberCount = warikan?.members?.length || 0;
     const totalAmt = (warikan?.expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const titleText = trip?.title ? `（${trip.title}）` : '';
-    return `💰【わりかん精算】${titleText}\n👥 メンバー: ${memberCount}人 / 合計支出: ¥${totalAmt.toLocaleString()}\n\n👇 このURLを開くと、タビトモでわりかん計算結果やしおりがそのまま見られます！\n${shareUrl}`;
+    const titleLabel = warikan?.title || trip?.title || 'グループの精算';
+    return `💰【わりかん精算】${titleLabel}\n👥 メンバー: ${memberCount}人 / 合計支出: ¥${totalAmt.toLocaleString()}\n\n👇 このURLを開くと、タビトモでわりかん計算結果やしおりがそのまま見られます！\n${shareUrl}`;
   }
 
   const stayText = trip?.stayDays && trip.stayDays > 1 ? ` (${trip.stayDays}日間)` : ' (日帰り)';

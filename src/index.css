@@ -7262,6 +7262,100 @@ input:checked + .toggle-slider::after {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
 }
 
+/* ========================================================
+   わりかん帳（名前付きグループ切替・編集バー）
+   ======================================================== */
+.warikan-book-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--border-subtle, #e2e8e3);
+}
+
+.warikan-book-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.warikan-book-current-label {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.warikan-book-current-name {
+  font-size: 0.94rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warikan-book-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.warikan-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.warikan-rename-input {
+  flex: 1 1 180px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #c7d8cb;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-family: inherit;
+}
+
+.warikan-rename-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.warikan-copy-members-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #f6faf7;
+  border: 1px solid #dce8dd;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.warikan-copy-members-check input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--sage);
+}
+
+.warikan-copy-members-check small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 
 
 

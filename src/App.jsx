@@ -61,15 +61,53 @@ export default function App() {
     INITIAL_MY_ITEMS
   );
 
-  // わりかんメンバー＆立替記録（単体利用OK、localStorage永続化）
-  const [members, setMembers] = usePersistentState(
-    'tabitomo.members',
-    INITIAL_WARIKAN_MEMBERS
+  // 初期わりかん帳生成（既存の単体localStorageデータがあれば引き継ぐ）
+  const buildInitialWarikanBooks = () => {
+    try {
+      const legacyMembers = localStorage.getItem('tabitomo.members');
+      const legacyExpenses = localStorage.getItem('tabitomo.expenses');
+      return [
+        {
+          id: 'wb-default',
+          title: '箱根ドライブの精算',
+          createdAt: defaultTripDate(),
+          members: legacyMembers ? JSON.parse(legacyMembers) : INITIAL_WARIKAN_MEMBERS,
+          expenses: legacyExpenses ? JSON.parse(legacyExpenses) : INITIAL_WARIKAN_PAYMENTS,
+        },
+      ];
+    } catch {
+      return [
+        {
+          id: 'wb-default',
+          title: '箱根ドライブの精算',
+          createdAt: defaultTripDate(),
+          members: INITIAL_WARIKAN_MEMBERS,
+          expenses: INITIAL_WARIKAN_PAYMENTS,
+        },
+      ];
+    }
+  };
+
+  // 名前付きのわりかん帳（複数グループ保存・切替OK、localStorage永続化）
+  const [warikanBooks, setWarikanBooks] = usePersistentState(
+    'tabitomo.warikanBooks',
+    buildInitialWarikanBooks()
   );
-  const [expenses, setExpenses] = usePersistentState(
-    'tabitomo.expenses',
-    INITIAL_WARIKAN_PAYMENTS
+  const [activeWarikanId, setActiveWarikanId] = usePersistentState(
+    'tabitomo.activeWarikanId',
+    'wb-default'
   );
+
+  const safeWarikanBooks =
+    Array.isArray(warikanBooks) && warikanBooks.length > 0
+      ? warikanBooks
+      : buildInitialWarikanBooks();
+
+  const currentWarikanBook =
+    safeWarikanBooks.find((b) => b.id === activeWarikanId) || safeWarikanBooks[0];
+
+  const members = currentWarikanBook?.members || [];
+  const expenses = currentWarikanBook?.expenses || [];
 
   // たびさがしタブで追加する際に対象とする日程（何日目か: 1, 2, 3...）
   const [targetDayForAdd, setTargetDayForAdd] = useState(1);
@@ -107,8 +145,28 @@ export default function App() {
         }
 
         if (sharedWarikan) {
-          setMembers(sharedWarikan.members);
-          setExpenses(sharedWarikan.expenses);
+          const sharedBookTitle =
+            sharedWarikan.title ||
+            (sharedTrip?.title ? `${sharedTrip.title}の精算` : '共有されたわりかん');
+          const sharedBook = {
+            id: uid('wb-shared'),
+            title: sharedBookTitle,
+            createdAt: new Date().toISOString().slice(0, 10),
+            members: sharedWarikan.members || [],
+            expenses: sharedWarikan.expenses || [],
+          };
+          setWarikanBooks((prevBooks) => {
+            const list = Array.isArray(prevBooks) ? [...prevBooks] : [];
+            const existingIdx = list.findIndex((b) => b.title === sharedBook.title);
+            if (existingIdx !== -1) {
+              const targetId = list[existingIdx].id;
+              list[existingIdx] = { ...list[existingIdx], ...sharedBook, id: targetId };
+              setActiveWarikanId(targetId);
+              return list;
+            }
+            setActiveWarikanId(sharedBook.id);
+            return [sharedBook, ...list];
+          });
         }
 
         const nextTab = focusTab || (sharedTrip ? 'shiori' : 'warikan');
@@ -403,16 +461,86 @@ export default function App() {
     showToast(`「${name}」をマイアイテムに登録し、チェックしました`);
   };
 
-  /* ---------------- わりかん操作（単体利用OK） ---------------- */
+  /* ---------------- わりかん操作（名前付き複数帳簿＆単体利用OK） ---------------- */
+  const updateActiveWarikanBook = (updater) => {
+    const targetId = currentWarikanBook?.id;
+    setWarikanBooks((prev) => {
+      const list = Array.isArray(prev) && prev.length > 0 ? prev : safeWarikanBooks;
+      return list.map((b) => (b.id === targetId ? updater(b) : b));
+    });
+  };
+
+  const handleCreateWarikanBook = ({ title, copyMembers = false }) => {
+    const bookTitle = (title || '').trim() || `新しいわりかん ${safeWarikanBooks.length + 1}`;
+    const newId = uid('wb');
+    const copiedMembers = copyMembers
+      ? members.map((m) => ({ id: uid('member'), name: m.name }))
+      : [];
+
+    const newBook = {
+      id: newId,
+      title: bookTitle,
+      createdAt: new Date().toISOString().slice(0, 10),
+      members: copiedMembers,
+      expenses: [],
+    };
+
+    setWarikanBooks((prev) => {
+      const list = Array.isArray(prev) && prev.length > 0 ? prev : safeWarikanBooks;
+      return [...list, newBook];
+    });
+    setActiveWarikanId(newId);
+    showToast(`わりかん帳「${bookTitle}」を作成しました`);
+  };
+
+  const handleRenameWarikanBook = (bookId, newTitle) => {
+    const trimmed = (newTitle || '').trim();
+    if (!trimmed) return;
+    setWarikanBooks((prev) =>
+      (Array.isArray(prev) ? prev : safeWarikanBooks).map((b) =>
+        b.id === bookId ? { ...b, title: trimmed } : b
+      )
+    );
+    showToast(`名前を「${trimmed}」に変更しました`);
+  };
+
+  const handleDeleteWarikanBook = (bookId) => {
+    if (safeWarikanBooks.length <= 1) {
+      showToast('最低1件のわりかん帳は保持されます');
+      return;
+    }
+    const remaining = safeWarikanBooks.filter((b) => b.id !== bookId);
+    setWarikanBooks(remaining);
+    if (currentWarikanBook?.id === bookId) {
+      setActiveWarikanId(remaining[0].id);
+    }
+    showToast('わりかん帳を削除しました');
+  };
+
+  const handleResetWarikanExpenses = (bookId) => {
+    setWarikanBooks((prev) =>
+      (Array.isArray(prev) ? prev : safeWarikanBooks).map((b) =>
+        b.id === bookId ? { ...b, expenses: [] } : b
+      )
+    );
+    showToast('メンバーを残して支出記録をリセットしました');
+  };
+
   const handleAddMember = (name) => {
     const id = uid('member');
-    setMembers((prev) => [...prev, { id, name }]);
+    updateActiveWarikanBook((b) => ({
+      ...b,
+      members: [...(b.members || []), { id, name }],
+    }));
     showToast(`メンバー「${name}」を追加しました`);
     return id;
   };
 
   const handleRemoveMember = (id) => {
-    setMembers((prev) => prev.filter((m) => m.id !== id));
+    updateActiveWarikanBook((b) => ({
+      ...b,
+      members: (b.members || []).filter((m) => m.id !== id),
+    }));
     showToast('メンバーを削除しました');
   };
 
@@ -421,12 +549,18 @@ export default function App() {
       id: uid('expense'),
       ...expenseData,
     };
-    setExpenses((prev) => [newExpense, ...prev]);
+    updateActiveWarikanBook((b) => ({
+      ...b,
+      expenses: [newExpense, ...(b.expenses || [])],
+    }));
     showToast(`「${expenseData.title}」の立て替えを記録しました`);
   };
 
   const handleDeleteExpense = (id) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
+    updateActiveWarikanBook((b) => ({
+      ...b,
+      expenses: (b.expenses || []).filter((e) => e.id !== id),
+    }));
     showToast('支出記録を削除しました');
   };
 
@@ -513,6 +647,7 @@ export default function App() {
                 onUpdateItinerary={handleUpdateItinerary}
                 onSwitchToSearchTab={handleSwitchToSearchTab}
                 onImportAiPlan={handleImportAiPlan}
+                warikanTitle={currentWarikanBook?.title}
                 members={members}
                 expenses={expenses}
               />
@@ -546,6 +681,14 @@ export default function App() {
             >
               <WarikanTab
                 currentTrip={currentTrip}
+                warikanBooks={safeWarikanBooks}
+                activeWarikanId={currentWarikanBook?.id}
+                currentWarikanBook={currentWarikanBook}
+                onSelectWarikanBook={(id) => setActiveWarikanId(id)}
+                onCreateWarikanBook={handleCreateWarikanBook}
+                onRenameWarikanBook={handleRenameWarikanBook}
+                onDeleteWarikanBook={handleDeleteWarikanBook}
+                onResetWarikanExpenses={handleResetWarikanExpenses}
                 members={members}
                 expenses={expenses}
                 onAddMember={handleAddMember}
