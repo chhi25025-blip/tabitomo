@@ -436,7 +436,7 @@ export default function AiPlanInlinePanel({
 
           <textarea
             className="ai-input-textarea"
-            rows={4}
+            rows={8}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="ここにAIの回答テキストを貼り付けてください..."

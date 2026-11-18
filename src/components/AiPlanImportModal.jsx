@@ -181,22 +181,54 @@ export default function AiPlanImportModal({
     onClose();
   };
 
-  // モーダル表示時に背面画面（body）のスクロールをロック
+  // モーダル表示時に背面画面（body / html）のスクロールをiOS Safari含め完全ロック
   useEffect(() => {
     if (!isOpen) return;
-    const prev = document.body.style.overflow;
+    const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+    const prevBodyPosition = document.body.style.position;
+    const prevBodyTop = document.body.style.top;
+    const prevBodyLeft = document.body.style.left;
+    const prevBodyRight = document.body.style.right;
+    const prevBodyWidth = document.body.style.width;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.position = prevBodyPosition;
+      document.body.style.top = prevBodyTop;
+      document.body.style.left = prevBodyLeft;
+      document.body.style.right = prevBodyRight;
+      document.body.style.width = prevBodyWidth;
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      window.scrollTo(0, scrollY);
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="guide-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="modal-backdrop ai-modal-backdrop"
+      onClick={onClose}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
       <div
-        className="guide-modal-window ai-import-modal-window"
+        className="modal-card ai-import-modal-window"
         onClick={(e) => e.stopPropagation()}
       >
         {/* モーダルヘッダー */}
@@ -207,9 +239,6 @@ export default function AiPlanImportModal({
             </span>
             <div>
               <h2 className="guide-modal-title">AIプランを一括取り込み</h2>
-              <p className="guide-modal-subtitle">
-                行先を入力してプロンプトをコピー ➔ AIの回答を貼るだけで旅程＆持ち物を一発作成！
-              </p>
             </div>
           </div>
           <button
@@ -223,16 +252,16 @@ export default function AiPlanImportModal({
         </div>
 
         {/* モーダル本文 */}
-        <div className="guide-modal-body ai-import-body">
+        <div
+          className="guide-modal-body ai-import-body"
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           {/* Step 1: 旅行条件の入力 & プロンプトコピー */}
           <section className="ai-step-card">
             <div className="ai-step-head">
               <span className="ai-step-badge">Step 1</span>
               <h3 className="ai-step-title">行先を決めてプロンプトをコピー</h3>
             </div>
-            <p className="ai-step-desc">
-              行きたい場所を入力すると、ChatGPTやGeminiに投げる質問文が自動で完成します。
-            </p>
 
             {/* 条件入力ミニフォーム */}
             <div className="ai-conditions-form">
@@ -399,7 +428,7 @@ export default function AiPlanImportModal({
 
             <textarea
               className="ai-input-textarea"
-              rows={5}
+              rows={8}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="ここにAIの回答テキストを貼り付けてください..."

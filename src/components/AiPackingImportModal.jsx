@@ -146,20 +146,52 @@ export default function AiPackingImportModal({
     onClose();
   };
 
-  // モーダル表示時に背面画面（body）のスクロールをロックし、モーダル内スクロールを確実に動作させる
+  // モーダル表示時に背面画面（body / html）のスクロールをiOS Safari含め完全ロック
   useEffect(() => {
     if (!isOpen) return;
-    const prev = document.body.style.overflow;
+    const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+    const prevBodyPosition = document.body.style.position;
+    const prevBodyTop = document.body.style.top;
+    const prevBodyLeft = document.body.style.left;
+    const prevBodyRight = document.body.style.right;
+    const prevBodyWidth = document.body.style.width;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.position = prevBodyPosition;
+      document.body.style.top = prevBodyTop;
+      document.body.style.left = prevBodyLeft;
+      document.body.style.right = prevBodyRight;
+      document.body.style.width = prevBodyWidth;
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      window.scrollTo(0, scrollY);
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="modal-backdrop ai-modal-backdrop"
+      onClick={onClose}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
       <div
         className="modal-card ai-import-modal-window"
         onClick={(e) => e.stopPropagation()}
@@ -185,7 +217,10 @@ export default function AiPackingImportModal({
         </div>
 
         {/* モーダル本文 */}
-        <div className="guide-modal-body ai-import-body">
+        <div
+          className="guide-modal-body ai-import-body"
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           {/* Step 1: プロンプトコピー */}
           <section className="ai-step-card">
             <div className="ai-step-head">
@@ -332,7 +367,7 @@ export default function AiPackingImportModal({
 
             <textarea
               className="ai-input-textarea"
-              rows={6}
+              rows={8}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="ここにAIの回答テキストを貼り付けてください..."
