@@ -105,7 +105,7 @@ export default function SearchTab({
         setSuggestions([
           {
             name: trimmed,
-            displayName: '🔗 Googleマップのリンクからスポット情報を自動読み込み',
+            displayName: '🔗 Googleマップのリンクから追加',
             region: 'Googleマップ連携',
             category: 'URLから取得',
             isGmaps: true,

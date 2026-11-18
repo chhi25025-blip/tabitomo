@@ -973,7 +973,6 @@ export default function ShioriTab({
           <div className="timeline-edit-action-banner">
             <div className="edit-banner-left">
               <span className="edit-mode-badge">✏️ 編集モード</span>
-              <span className="edit-mode-hint">時間や滞在分、メモの変更・並べ替えができます</span>
             </div>
             <div className="timeline-top-btns">
               <button
@@ -1074,7 +1073,7 @@ export default function ShioriTab({
             {/* 3通りの作り方案内カード */}
             <div className="three-ways-creation-card">
               <h5 className="ways-creation-title">
-                💡 あなたに合ったしおりの作り方を選べます
+                💡 しおりの作り方を選べます
               </h5>
               <div className="ways-creation-grid">
                 <div
@@ -1088,7 +1087,7 @@ export default function ShioriTab({
                     <span className="way-icon">🔍</span>
                   </div>
                   <strong className="way-title">1. たびさがしから探す</strong>
-                  <p className="way-desc">写真や人気スポット、周辺のカフェ・宿を見ながら楽しく選びたい人に！</p>
+                  <p className="way-desc">観光地や周辺のカフェ・宿を写真を見ながら選べます</p>
                 </div>
 
                 <div
@@ -1105,7 +1104,7 @@ export default function ShioriTab({
                     <span className="way-icon">➕</span>
                   </div>
                   <strong className="way-title">2. スポットを直接追加</strong>
-                  <p className="way-desc">行きたい場所が決まっている時や、GoogleマップのURLを貼って登録したい人に！</p>
+                  <p className="way-desc">店名やGoogleマップのURLから直接登録できます</p>
                 </div>
 
                 <div
@@ -1119,7 +1118,7 @@ export default function ShioriTab({
                     <span className="way-icon">🤖</span>
                   </div>
                   <strong className="way-title">3. AIで一括おまかせ作成</strong>
-                  <p className="way-desc">調べるのが面倒な時や、ChatGPTなどの回答をパッと取り込みたい人に！</p>
+                  <p className="way-desc">ChatGPTやGeminiのプランを一括取り込みできます</p>
                 </div>
               </div>
             </div>
@@ -1610,7 +1609,7 @@ export default function ShioriTab({
                                   {nearbyLoading ? (
                                     <div className="nearby-loading-box">
                                       <span className="nearby-loading-spinner" />
-                                      <span>周辺のスポット・お店を検索中... 🔍</span>
+                                      <span>読み込み中…</span>
                                     </div>
                                   ) : nearbyTab === 'gourmet' ? (
                                     (nearbyCache[spot.id]?.gourmets || []).length > 0 ? (
@@ -1671,7 +1670,6 @@ export default function ShioriTab({
                                     ) : (
                                       <div className="nearby-empty-box">
                                         <p>周辺のグルメ情報が見つかりませんでした。</p>
-                                        <span className="nearby-empty-hint">（スポット名をより一般的な駅名・地名にすると見つかりやすくなります）</span>
                                       </div>
                                     )
                                   ) : (
@@ -1803,7 +1801,7 @@ export default function ShioriTab({
               {/* GoogleマップURL貼り付け欄（名前入力欄の下） */}
               <label className="field-block">
                 <div className="field-label-row">
-                  <span className="field-label">🔗 GoogleマップのURL（貼るだけで場所と名前を自動取得）</span>
+                  <span className="field-label">🔗 Googleマップの共有リンク</span>
                   {isResolvingGmapsUrl && (
                     <span className="resolving-indicator">
                       <span className="inline-mini-spinner" /> 情報を取得中…
@@ -1837,7 +1835,7 @@ export default function ShioriTab({
                   <p className="gmaps-resolved-feedback">{gmapsResolvedMsg}</p>
                 )}
                 <span className="field-hint-text">
-                  Googleマップの「共有」リンクを貼ると、場所の名前・座標・写真を自動で読み込みます。
+                  リンクを貼り付けるとスポット情報が自動入力されます
                 </span>
               </label>
 
@@ -1968,7 +1966,7 @@ export default function ShioriTab({
               {/* GoogleマップURL貼り付け欄 */}
               <label className="field-block">
                 <div className="field-label-row">
-                  <span className="field-label">🔗 GoogleマップのURL（貼るだけで場所と名前を自動取得）</span>
+                  <span className="field-label">🔗 Googleマップの共有リンク</span>
                   {isResolvingStartGmaps && (
                     <span className="resolving-indicator">
                       <span className="inline-mini-spinner" /> 情報を取得中…
@@ -2002,7 +2000,7 @@ export default function ShioriTab({
                   <p className="gmaps-resolved-feedback">{startGmapsResolvedMsg}</p>
                 )}
                 <span className="field-hint-text">
-                  自宅や最寄り駅、集合場所などのGoogleマップ「共有」リンクを貼ると、名称やピンの位置を自動設定します。
+                  リンクを貼り付けると名称や位置が自動設定されます
                 </span>
               </label>
 

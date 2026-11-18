@@ -71,7 +71,7 @@ export default function SpotImage({
           <div className="watercolor-content">
             <span className="watercolor-icon">{theme.icon}</span>
             <span className="watercolor-title">{title || alt}</span>
-            <span className="watercolor-tag">水彩イメージ ・ {theme.label}</span>
+            <span className="watercolor-tag">{theme.label}</span>
           </div>
         </div>
       )}

@@ -299,23 +299,6 @@ export default function WarikanTab({
         )}
       </section>
 
-      {/* ヒーロー紹介 */}
-      <section className="botanical-hero-card">
-        <div className="hero-text">
-          <span className="leaf-badge">
-            <Icon name="wallet" size={15} /> わりかん
-          </span>
-          <h2>立て替えをスマートに、最小回数で清算</h2>
-          <p className="hero-desc">
-            旅先でのガソリン代・食事代・チケット代などの立て替えをサッと記録。
-            しおりを作っていなくても、日常のドライブや飲み会でもこのタブ単体ですぐに使えます。
-          </p>
-        </div>
-        <div className="hero-leaf-deco" aria-hidden="true">
-          <Icon name="wallet" size={64} strokeWidth={1.4} />
-        </div>
-      </section>
-
       {/* メンバー登録バー */}
       <section className="card card-members">
         <div className="card-header-clean">
@@ -549,8 +532,8 @@ export default function WarikanTab({
           <div className="header-icon-title">
             <Icon name="sparkle" size={18} />
             <div>
-              <h3>スマート清算（最小送金ステップ）</h3>
-              <p className="sub-text">合計支出と1人あたりの負担から自動計算</p>
+              <h3>送金の目安</h3>
+              <p className="sub-text">負担額を均等にするための送金プラン</p>
             </div>
           </div>
 

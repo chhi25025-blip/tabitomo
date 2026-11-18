@@ -288,9 +288,6 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
                 {itinerary.length}スポット
               </span>
             </div>
-            <p className="map-sub">
-              {itinerary.length}ヶ所の立ち寄りスポットを結ぶ俯瞰ルート
-            </p>
           </div>
         </div>
 
@@ -327,13 +324,11 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
             <div ref={mapContainerRef} className="leaflet-map-root" />
           )}
 
-          {/* 下部のクイック案内インフォバー */}
-          {itinerary.length > 0 && (
+          {/* スポット経緯度の取得待機時のみ簡易表示 */}
+          {itinerary.length > 0 && !(validSpots.length > 0 || (startPoint && typeof startPoint.lat === 'number')) && (
             <div className="map-bottom-bar">
               <span className="map-bottom-info">
-                {validSpots.length > 0 || (startPoint && typeof startPoint.lat === 'number')
-                  ? '💡 ピンをタップするとスポット詳細とGoogleマップナビボタンが表示されます'
-                  : '📍 スポットの経緯度を取得しています…'}
+                📍 スポットの経緯度を取得しています…
               </span>
             </div>
           )}
