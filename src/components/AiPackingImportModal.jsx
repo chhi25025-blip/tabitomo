@@ -146,6 +146,16 @@ export default function AiPackingImportModal({
     onClose();
   };
 
+  // モーダル表示時に背面画面（body）のスクロールをロックし、モーダル内スクロールを確実に動作させる
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -162,9 +172,6 @@ export default function AiPackingImportModal({
             </span>
             <div>
               <h2 className="guide-modal-title">AIに持ち物を相談・追加</h2>
-              <p className="guide-modal-subtitle">
-                目的地や時期・アクティビティに合わせて、AIに必要な持ち物を相談しましょう！
-              </p>
             </div>
           </div>
           <button
@@ -185,9 +192,6 @@ export default function AiPackingImportModal({
               <span className="ai-step-badge">Step 1</span>
               <h3 className="ai-step-title">行先・条件を決めてプロンプトをコピー</h3>
             </div>
-            <p className="ai-step-desc">
-              行先や気になる条件（標高が高い、海に入るなど）を入力して相談文を作成します。
-            </p>
 
             {/* 条件入力ミニフォーム */}
             <div className="ai-conditions-form">
@@ -328,7 +332,7 @@ export default function AiPackingImportModal({
 
             <textarea
               className="ai-input-textarea"
-              rows={4}
+              rows={6}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="ここにAIの回答テキストを貼り付けてください..."

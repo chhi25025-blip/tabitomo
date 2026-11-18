@@ -32,6 +32,11 @@ export default function MochimonoTab({
   const [selectedWeatherDay, setSelectedWeatherDay] = useState('all');
   const [isWeatherOpen, setIsWeatherOpen] = useState(false); // 初期は閉じてスッキリ表示、任意で開いて天気確認可能
 
+  // 手動持ち物追加ステート
+  const [manualItemName, setManualItemName] = useState('');
+  const [manualItemPriority, setManualItemPriority] = useState('must');
+  const [manualItemCategory, setManualItemCategory] = useState('daily');
+
   // マイアイテム追加フォームステート
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('wear');
@@ -152,6 +157,28 @@ export default function MochimonoTab({
     onAddMyItem(name, newItemCategory);
     setNewItemName('');
     setErrorMessage('');
+  };
+
+  // 持ち物の手動追加ハンドラ
+  const handleManualAddPacking = (e) => {
+    e.preventDefault();
+    const name = manualItemName.trim();
+    if (!name) return;
+
+    const newItem = {
+      id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name,
+      priority: manualItemPriority,
+      category: manualItemCategory,
+      reason: '手動追加アイテム',
+      reasonTag: '手動追加',
+      source: 'user',
+    };
+
+    if (onAddCustomPacking) {
+      onAddCustomPacking(selectedTrip.id, [newItem]);
+    }
+    setManualItemName('');
   };
 
   const filteredMyItems = useMemo(() => {
@@ -539,6 +566,55 @@ export default function MochimonoTab({
                 <Icon name="bot" size={14} /> AIに持ち物を相談
               </button>
             </div>
+          </section>
+
+          {/* 手動で持ち物を追加するクイック入力バー */}
+          <section className="card card-quick-add-packing">
+            <form onSubmit={handleManualAddPacking} className="quick-add-packing-form">
+              <div className="quick-add-input-group">
+                <span className="quick-add-icon">✏️</span>
+                <input
+                  type="text"
+                  value={manualItemName}
+                  onChange={(e) => setManualItemName(e.target.value)}
+                  placeholder="持って行くものを自由に追加（例: 水着、常備薬、カメラ）"
+                  className="quick-add-input"
+                />
+              </div>
+
+              <div className="quick-add-options">
+                <select
+                  value={manualItemPriority}
+                  onChange={(e) => setManualItemPriority(e.target.value)}
+                  className="quick-add-select"
+                  aria-label="重要度"
+                >
+                  <option value="must">🔥 必須</option>
+                  <option value="nice">✨ あると便利</option>
+                </select>
+
+                <select
+                  value={manualItemCategory}
+                  onChange={(e) => setManualItemCategory(e.target.value)}
+                  className="quick-add-select"
+                  aria-label="カテゴリ"
+                >
+                  <option value="daily">日用品・貴重品</option>
+                  <option value="wear">衣類・着替え</option>
+                  <option value="gadget">電子機器</option>
+                  <option value="hygiene">衛生・コスメ</option>
+                  <option value="rain">雨具</option>
+                </select>
+
+                <button
+                  type="submit"
+                  className="btn btn-sage btn-sm quick-add-submit-btn"
+                  disabled={!manualItemName.trim()}
+                >
+                  <Icon name="plus" size={14} /> 追加
+                </button>
+              </div>
+            </form>
           </section>
 
           {/* ④ 持ち物チェックリスト一覧 */}

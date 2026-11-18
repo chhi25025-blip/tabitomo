@@ -181,6 +181,18 @@ export default function AiPlanImportModal({
     onClose();
   };
 
+  // モーダル表示時に背面画面（body）のスクロールをロック
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
   return (
     <div className="guide-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div

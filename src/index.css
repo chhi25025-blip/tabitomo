@@ -6049,6 +6049,67 @@ input:checked + .toggle-slider::after {
   white-space: nowrap;
 }
 
+/* 持ち物手動追加バー */
+.card-quick-add-packing {
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.quick-add-packing-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.quick-add-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 180px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+}
+
+.quick-add-icon {
+  font-size: 0.95rem;
+}
+
+.quick-add-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.quick-add-options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-add-select {
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 0.82rem;
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+}
+
+.quick-add-submit-btn {
+  white-space: nowrap;
+}
+
 /* AIモーダルウィンドウ */
 .ai-import-modal-window {
   max-width: 680px !important;
@@ -6075,7 +6136,11 @@ input:checked + .toggle-slider::after {
 .ai-import-body {
   padding: 18px 20px;
   overflow-y: auto;
-  flex: 1;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -6206,6 +6271,7 @@ input:checked + .toggle-slider::after {
 /* テキストエリア */
 .ai-input-textarea {
   width: 100%;
+  min-height: 140px;
   border: 1px solid #c7d8cb;
   border-radius: 8px;
   padding: 12px;
@@ -6479,12 +6545,19 @@ input:checked + .toggle-slider::after {
 @media (max-width: 768px) {
   .ai-import-modal-window {
     width: 95vw !important;
-    max-height: 92vh !important;
+    max-height: 90vh !important;
+    height: 90vh !important;
   }
 
   .ai-import-body {
     padding: 14px 12px;
     gap: 14px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
   }
 
   .preview-packing-grid {
@@ -6504,6 +6577,27 @@ input:checked + .toggle-slider::after {
   .packing-ai-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .quick-add-packing-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .quick-add-options {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .quick-add-options .quick-add-select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .quick-add-submit-btn {
+    flex-shrink: 0;
   }
 }
 
@@ -6581,7 +6675,23 @@ input:checked + .toggle-slider::after {
 .ai-field-input[type="date"] {
   -webkit-appearance: none;
   appearance: none;
-  min-height: 38px;
+  min-height: 42px;
+  height: 42px;
+  line-height: 42px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+}
+
+.ai-field-input[type="date"]::-webkit-date-and-time-value {
+  line-height: 42px;
+  height: 42px;
+  min-height: 42px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  text-align: left;
 }
 
 .ai-field-input:focus,
