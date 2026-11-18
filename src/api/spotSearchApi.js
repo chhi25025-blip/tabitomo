@@ -1106,21 +1106,29 @@ function formatHotpepperShop(s, refLat = null, refLng = null) {
  * ホットペッパーリクエスト共通ヘルパー（開発環境はプロキシ、本番GitHub PagesはJSONPでCORS回避）
  */
 async function requestHotpepperShops(queryParams) {
-  // 1. 開発環境の Vite プロキシ (/api/hotpepper)
-  const proxyUrl = `/api/hotpepper/hotpepper/gourmet/v1/?${queryParams}&format=json`;
-  try {
-    const res = await fetch(proxyUrl);
-    if (res.ok) {
-      // リクルートWebAPIは format=json を指定しても Content-Type: text/javascript を返すため安全にパース
-      const text = await res.text();
-      try {
-        const data = JSON.parse(text);
-        const shops = data?.results?.shop || [];
-        if (shops.length > 0) return shops;
-      } catch {}
+  // 1. プロキシ（Vercel Serverless Function / Vite 開発環境プロキシ）
+  const proxyUrls = [
+    `/api/hotpepper?${queryParams}&format=json`,
+    `/api/hotpepper/hotpepper/gourmet/v1/?${queryParams}&format=json`,
+  ];
+  for (const proxyUrl of proxyUrls) {
+    try {
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const text = await res.text();
+        // SPAのindex.htmlなどのHTMLフォールバックが返ってきた場合はスキップ
+        if (text.trim().startsWith('<!') || text.trim().startsWith('<html')) {
+          continue;
+        }
+        try {
+          const data = JSON.parse(text);
+          const shops = data?.results?.shop || [];
+          if (shops.length > 0) return shops;
+        } catch {}
+      }
+    } catch {
+      // 次のプロキシ候補へ
     }
-  } catch {
-    // プロキシ失敗時は次を試行
   }
 
   // 2. ブラウザ環境（GitHub Pages等）での JSONP

@@ -1,19 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/api/hotpepper/:path*",
-      "destination": "https://webservice.recruit.co.jp/:path*"
-    },
-    {
-      "source": "/api/osm/:path*",
-      "destination": "https://nominatim.openstreetmap.org/:path*"
-    },
-    {
-      "source": "/api/rakuten/:path*",
-      "destination": "https://openapi.rakuten.co.jp/:path*"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
