@@ -82,10 +82,14 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
 
     layerGroup.clearLayers();
 
+    // 出発地は遠方のケース（自宅等）があるため、現地の旅程スポット（1〜N）のみをマップにプロットして現地詳細にフィット
     const validSpots = (itinerary || []).filter(
       (s) => typeof s.lat === 'number' && typeof s.lng === 'number' && !isNaN(s.lat) && !isNaN(s.lng)
     );
 
+    const spotCoords = validSpots.map((s) => [s.lat, s.lng]);
+
+    // スポットが0件で出発地のみある場合のフォールバック
     const hasStart =
       startPoint &&
       typeof startPoint.lat === 'number' &&
@@ -93,40 +97,19 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
       !isNaN(startPoint.lat) &&
       !isNaN(startPoint.lng);
 
-    const allCoords = [];
-    if (hasStart) {
-      allCoords.push([startPoint.lat, startPoint.lng]);
-    }
-    validSpots.forEach((s) => allCoords.push([s.lat, s.lng]));
-
-    if (allCoords.length === 0) {
+    if (spotCoords.length === 0 && !hasStart) {
       map.setView([35.6812, 139.7671], 10);
       return;
     }
 
-    // 1. 出発地ピン（🏠 アイコン）
-    if (hasStart) {
-      const startMarker = L.marker([startPoint.lat, startPoint.lng], {
-        icon: createStartPinIcon(),
-      });
-
-      const startPopupHtml = `
-        <div class="map-popup-card">
-          <div class="popup-head">
-            <span class="popup-num" style="background:#4a7c59">🏠</span>
-            <strong class="popup-title">${startPoint.name || '出発地'}</strong>
-          </div>
-          <p class="popup-time">⏰ ${startPoint.time || '08:30'} 出発</p>
-          ${startPoint.memo ? `<p class="popup-memo">${startPoint.memo}</p>` : ''}
-        </div>
-      `;
-      startMarker.bindPopup(startPopupHtml, { maxWidth: 240, className: 'botanical-popup' });
-      layerGroup.addLayer(startMarker);
+    if (spotCoords.length === 0 && hasStart) {
+      map.setView([startPoint.lat, startPoint.lng], 13);
+      return;
     }
 
-    // 2. 出発地〜各スポット間を優しいテラコッタの点線ルートで結ぶ
-    if (allCoords.length >= 2) {
-      const polyline = L.polyline(allCoords, {
+    // 1. 各スポット間を優しいテラコッタの点線ルートで結ぶ（現地スポット同士）
+    if (spotCoords.length >= 2) {
+      const polyline = L.polyline(spotCoords, {
         color: '#c26549',
         weight: 4,
         opacity: 0.85,
@@ -137,7 +120,7 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
       layerGroup.addLayer(polyline);
     }
 
-    // 3. 立ち寄りスポットのピン（SVG番号付きピン）
+    // 2. 立ち寄りスポットのピン（SVG番号付きピン）
     validSpots.forEach((spot, idx) => {
       const isLast = idx === validSpots.length - 1 && validSpots.length > 1;
       const navUrl = getGoogleMapsNavUrl(spot.name, spot.lat, spot.lng);
@@ -167,15 +150,15 @@ export default function MapRoute({ itinerary = [], startPoint, title = '旅の�
       layerGroup.addLayer(marker);
     });
 
-    // 4. 全体が見渡せる「引きの俯瞰図」にズームと中心を自動フィット
-    if (allCoords.length === 1) {
-      map.setView(allCoords[0], 13);
+    // 3. 現地のスポット群が美しく収まるようにズームと中心を自動フィット
+    if (spotCoords.length === 1) {
+      map.setView(spotCoords[0], 14);
     } else {
-      const bounds = L.latLngBounds(allCoords);
+      const bounds = L.latLngBounds(spotCoords);
       if (bounds.isValid()) {
         map.fitBounds(bounds, {
-          padding: [45, 45],
-          maxZoom: 14,
+          padding: [36, 36],
+          maxZoom: 15,
         });
       }
     }

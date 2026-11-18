@@ -17,7 +17,7 @@ import {
   formatTripForLineShare,
 } from '../utils';
 import { generateShareMessageWithUrl } from '../utils/shareUrl';
-import { TRIP_STYLES, styleInfo } from '../travelData';
+import { TRIP_STYLES, styleInfo, findNearbyYorimichi } from '../travelData';
 
 import {
   resolveGoogleMapsSpot,
@@ -28,6 +28,7 @@ import {
   getExternalApiKeys,
   resolveSpotCoordinates,
   enrichTripSpotsWithCoordinates,
+  getNormalizedCategoryType,
 } from '../api/spotSearchApi';
 import AiPlanInlinePanel from './AiPlanInlinePanel';
 
@@ -174,15 +175,29 @@ export default function ShioriTab({
   useEffect(() => {
     if (!currentTrip?.itinerary || currentTrip.itinerary.length === 0) return;
 
+    // 明らかに誤ったピン（例: 軽井沢旅行なのに「旧銀座」が東京の銀座 35.67... になっている等）を自動検知
+    const hasSuspectCoords = currentTrip.itinerary.some((s) => {
+      if (!s?.name) return false;
+      const isOldGinza = /旧銀座|旧軽井沢銀座|旧軽銀座|軽井沢銀座/i.test(s.name);
+      const isTokyoCoords =
+        typeof s.lat === 'number' &&
+        s.lat > 35.65 &&
+        s.lat < 35.70 &&
+        typeof s.lng === 'number' &&
+        s.lng > 139.74 &&
+        s.lng < 139.79;
+      return isOldGinza && isTokyoCoords;
+    });
+
     const spotsWithoutCoords = currentTrip.itinerary.filter(
       (s) => s.name && (typeof s.lat !== 'number' || typeof s.lng !== 'number' || isNaN(s.lat) || isNaN(s.lng))
     );
 
-    if (spotsWithoutCoords.length === 0) return;
+    if (spotsWithoutCoords.length === 0 && !hasSuspectCoords) return;
 
     let isMounted = true;
     (async () => {
-      const areaHint = currentTrip.mainSpot || currentTrip.title || '';
+      const areaHint = currentTrip.destination || currentTrip.mainSpot || currentTrip.title || '';
       const updated = await enrichTripSpotsWithCoordinates(currentTrip.itinerary, areaHint);
       if (isMounted && updated !== currentTrip.itinerary) {
         onUpdateItinerary(currentTrip.id, updated);
@@ -392,17 +407,66 @@ export default function ShioriTab({
       let gourmets = [];
       let hotels = [];
 
-      // 座標がある場合は半径検索
+      // 1. 座標がある場合は半径検索
       if (spot.lat && spot.lng) {
-        gourmets = await fetchNearbyHotpepperGourmet(spot.lat, spot.lng, 5, 6);
-      } else {
-        // スポット名（地名）でキーワード検索
-        gourmets = await searchGourmetFromHotpepper(spot.name, 6);
+        try {
+          gourmets = await fetchNearbyHotpepperGourmet(spot.lat, spot.lng, 5, 8);
+        } catch {}
+      }
+
+      // 2. 0件の場合はスポット名でキーワード検索
+      if ((!gourmets || gourmets.length === 0) && spot.name) {
+        try {
+          gourmets = await searchGourmetFromHotpepper(spot.name, 6);
+        } catch {}
+      }
+
+      // 3. それでも0件の場合は、旅行目的地や地名＋カフェ/グルメで検索
+      const cleanTripDest = (currentTrip?.destination || currentTrip?.mainSpot || currentTrip?.title || '')
+        .replace(/旅行|ドライブ|観光|しおり|女子旅/g, '')
+        .trim();
+      if ((!gourmets || gourmets.length === 0) && cleanTripDest) {
+        try {
+          gourmets = await searchGourmetFromHotpepper(cleanTripDest, 6);
+        } catch {}
+      }
+
+      // 4. それでも0件の場合は、travelData の周辺寄り道（findNearbyYorimichi）からカフェ・グルメを確実に抽出
+      if (!gourmets || gourmets.length === 0) {
+        const fallback = findNearbyYorimichi(
+          spot.lat || currentTrip?.startPoint?.lat || 35.6812,
+          spot.lng || currentTrip?.startPoint?.lng || 139.7671,
+          0.1,
+          25.0,
+          spot.name || cleanTripDest
+        );
+        const yoriGourmets = fallback.filter((f) => {
+          const cType = getNormalizedCategoryType(f);
+          return cType === 'cafe' || cType === 'restaurant';
+        });
+        if (yoriGourmets.length > 0) {
+          gourmets = yoriGourmets.map((y) => ({
+            id: y.id,
+            name: y.name,
+            title: y.name,
+            category: y.category,
+            categoryType: getNormalizedCategoryType(y),
+            icon: y.icon,
+            lat: y.lat,
+            lng: y.lng,
+            imageUrl: y.imageUrl,
+            tag: y.tag,
+            desc: y.desc,
+            detailUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(y.name)}`,
+          }));
+        }
       }
 
       // 楽天ホテル写真・宿検索
-      const rakutenResults = await searchPhotoFromRakuten(spot.name, getExternalApiKeys());
-      hotels = Array.isArray(rakutenResults) ? rakutenResults.slice(0, 4) : [];
+      try {
+        const rakutenResults = await searchPhotoFromRakuten(spot.name || cleanTripDest, getExternalApiKeys());
+        hotels = Array.isArray(rakutenResults) ? rakutenResults.slice(0, 4) : [];
+      } catch {}
 
       setNearbyCache((prev) => ({
         ...prev,
@@ -1551,27 +1615,27 @@ export default function ShioriTab({
                                         {(nearbyCache[spot.id]?.gourmets || []).map((g) => (
                                           <div key={g.id || g.name} className="nearby-item-card">
                                             <div className="nearby-card-media">
-                                              {g.photoUrl ? (
-                                                <img src={g.photoUrl} alt={g.name} className="nearby-item-img" />
+                                              {g.imageUrl || g.photoUrl ? (
+                                                <img src={g.imageUrl || g.photoUrl} alt={g.name} className="nearby-item-img" />
                                               ) : (
-                                                <div className="nearby-img-fallback">🍴</div>
+                                                <div className="nearby-img-fallback">{g.icon || '🍴'}</div>
                                               )}
                                               <span className="nearby-genre-badge">
-                                                {g.genre?.name || g.genre || 'グルメ'}
+                                                {g.category || g.genre?.name || g.genre || (g.categoryType === 'cafe' ? 'カフェ' : 'グルメ')}
                                               </span>
                                             </div>
                                             <div className="nearby-card-info">
                                               <h5 className="nearby-item-name">{g.name}</h5>
-                                              {g.budget?.name && (
-                                                <span className="nearby-item-budget">💰 {g.budget.name}</span>
+                                              {(g.budget?.name || g.budget) && (
+                                                <span className="nearby-item-budget">💰 {g.budget?.name || g.budget}</span>
                                               )}
-                                              {g.catch && (
-                                                <p className="nearby-item-desc">{g.catch}</p>
+                                              {(g.desc || g.extract || g.catch) && (
+                                                <p className="nearby-item-desc">{g.desc || g.extract || g.catch}</p>
                                               )}
                                               <div className="nearby-card-bottom-actions">
-                                                {g.urls?.pc && (
+                                                {(g.detailUrl || g.wikiUrl || g.urls?.pc) && (
                                                   <a
-                                                    href={g.urls.pc}
+                                                    href={g.detailUrl || g.wikiUrl || g.urls?.pc}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="nearby-item-link"

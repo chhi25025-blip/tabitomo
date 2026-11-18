@@ -324,6 +324,19 @@ export const YORIMICHI_CANDIDATES = [
     imageUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/160729_Kumoba-ike_Karuizawa_Japan05s3.jpg/960px-160729_Kumoba-ike_Karuizawa_Japan05s3.jpg',
     imageSource: 'Wikipedia (Wikimedia Commons)',
   },
+  {
+    id: 'yori-ka5',
+    name: '軽井沢 川上庵（信州手打ち蕎麦）',
+    category: 'グルメ',
+    categoryType: 'restaurant',
+    icon: '🥢',
+    lat: 36.3575,
+    lng: 138.6340,
+    tag: '特製くるみダレせいろ蕎麦',
+    desc: '旧軽井沢銀座の入口に佇む名店。粗挽きの手打ち二八蕎麦と旬の一品料理が人気。',
+    defaultStay: 50,
+    imageUrl: null,
+  },
 
   // --- 富士五湖周辺 ---
   {
@@ -416,6 +429,19 @@ export const YORIMICHI_CANDIDATES = [
     defaultStay: 50,
     imageUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7a/170825_Italian_Embassy_Villa_Memorial_Park03s3.jpg/960px-170825_Italian_Embassy_Villa_Memorial_Park03s3.jpg',
     imageSource: 'Wikipedia (Wikimedia Commons)',
+  },
+  {
+    id: 'yori-n4',
+    name: '日光湯波料理 恵比寿家',
+    category: 'グルメ',
+    categoryType: 'restaurant',
+    icon: '🥢',
+    lat: 36.7510,
+    lng: 139.6105,
+    tag: '創業百年の伝統ゆば会席',
+    desc: '日光名物の引き上げ湯波を多彩な料理で味わえる老舗。上品な出汁と生湯波が絶品。',
+    defaultStay: 60,
+    imageUrl: null,
   },
 
   // --- 京都嵐山周辺 ---
@@ -717,11 +743,37 @@ export function findNearbyYorimichi(lat, lng, minKm = 0.1, maxKm = 18.0, spotNam
 
   hits.sort((a, b) => a.distanceKm - b.distanceKm);
 
-  // 3. それでも2件未満の場合（固定リスト未登録の地域）：
-  // メインスポットの近隣座標（数km〜十数km）に合わせたリアルな周辺寄り道をスマート補完！
-  if (hits.length < 3) {
+  const hasCafeInHits = hits.some((h) => /カフェ|喫茶|珈琲|コーヒー|ベーカリー|パン|スイーツ/i.test(`${h.category} ${h.name}`));
+  const hasRestInHits = hits.some((h) => /グルメ|レストラン|食事|ランチ|定食|料理|和食|洋食|焼肉|そば|うどん/i.test(`${h.category} ${h.name}`));
+
+  // 寄り道が3件未満、またはカフェやレストランが欠けている場合は動的テンプレートから補完
+  if (hits.length < 4 || !hasCafeInHits || !hasRestInHits) {
     const baseName = (spotName || '現地').replace(/(温泉|高原|山|湖|公園|神社|寺)$/, '');
     const dynamicTemplates = [
+      {
+        name: `森の焙煎所 ${baseName}カフェ`,
+        category: 'カフェ',
+        icon: '☕',
+        dLat: 0.022,
+        dLng: -0.025,
+        dist: 3.6,
+        tag: 'こだわりの自家焙煎珈琲',
+        desc: '旅の合間にほっと一息つける隠れ家カフェ。手作りスイーツがおすすめ。',
+        imageUrl: null,
+        defaultStay: 45,
+      },
+      {
+        name: `旬彩料理 ${baseName}処（ご当地ランチ）`,
+        category: 'グルメ',
+        icon: '🍽️',
+        dLat: 0.015,
+        dLng: 0.020,
+        dist: 2.8,
+        tag: '地元食材を味わう名物料理',
+        desc: `${baseName}の旬の恵みをふんだんに使った人気レストラン。ご当地ランチが評判。`,
+        imageUrl: null,
+        defaultStay: 50,
+      },
       {
         name: `道の駅 ${baseName}街道（地域特産）`,
         category: '道の駅',
@@ -747,18 +799,6 @@ export function findNearbyYorimichi(lat, lng, minKm = 0.1, maxKm = 18.0, spotNam
         defaultStay: 30,
       },
       {
-        name: `森の焙煎所 ${baseName}カフェ`,
-        category: 'カフェ',
-        icon: '☕',
-        dLat: 0.022,
-        dLng: -0.025,
-        dist: 3.6,
-        tag: 'こだわりの自家焙煎珈琲',
-        desc: '旅の合間にほっと一息つける隠れ家カフェ。手作りスイーツがおすすめ。',
-        imageUrl: null,
-        defaultStay: 45,
-      },
-      {
         name: `${baseName}郷の湯（日帰り足湯）`,
         category: '足湯',
         icon: '♨️',
@@ -772,32 +812,51 @@ export function findNearbyYorimichi(lat, lng, minKm = 0.1, maxKm = 18.0, spotNam
       },
     ];
 
-    const needed = 3 - hits.length;
-    for (let i = 0; i < needed && i < dynamicTemplates.length; i++) {
+    for (let i = 0; i < dynamicTemplates.length && hits.length < 6; i++) {
       const tmpl = dynamicTemplates[i];
-      const genLat = Math.round((lat + tmpl.dLat) * 10000) / 10000;
-      const genLng = Math.round((lng + tmpl.dLng) * 10000) / 10000;
-      const realDist = calcDistanceKm(lat, lng, genLat, genLng);
+      if (hits.some((h) => h.name === tmpl.name)) continue;
+      const isCafeTmpl = tmpl.category === 'カフェ';
+      const isRestTmpl = tmpl.category === 'グルメ';
 
-      hits.push({
-        id: `dyn-yori-${i}-${Math.round(lat * 100)}`,
-        name: tmpl.name,
-        category: tmpl.category,
-        icon: tmpl.icon,
-        lat: genLat,
-        lng: genLng,
-        imageUrl: tmpl.imageUrl,
-        tag: tmpl.tag,
-        desc: tmpl.desc,
-        defaultStay: tmpl.defaultStay,
-        distanceKm: realDist,
-      });
+      // カフェやレストランが不足していれば優先追加
+      if ((!hasCafeInHits && isCafeTmpl) || (!hasRestInHits && isRestTmpl) || hits.length < 4) {
+        const genLat = Math.round((lat + tmpl.dLat) * 10000) / 10000;
+        const genLng = Math.round((lng + tmpl.dLng) * 10000) / 10000;
+        const realDist = calcDistanceKm(lat, lng, genLat, genLng);
+
+        hits.push({
+          id: `dyn-yori-${i}-${Math.round(lat * 100)}`,
+          name: tmpl.name,
+          category: tmpl.category,
+          icon: tmpl.icon,
+          lat: genLat,
+          lng: genLng,
+          imageUrl: tmpl.imageUrl,
+          tag: tmpl.tag,
+          desc: tmpl.desc,
+          defaultStay: tmpl.defaultStay,
+          distanceKm: realDist,
+        });
+      }
     }
 
     hits.sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
-  return hits.slice(0, 4);
+  // 全アイテムに categoryType を確実に付与（カフェ・レストラン・観光地）
+  return hits.slice(0, 6).map((item) => {
+    const text = `${item.category || ''} ${item.tag || ''} ${item.name || ''}`.toLowerCase();
+    let categoryType = 'sightseeing';
+    if (/カフェ|喫茶|珈琲|コーヒー|ベーカリー|パン|スイーツ|デザート|tea|cafe|coffee|bakery/i.test(text)) {
+      categoryType = 'cafe';
+    } else if (/レストラン|グルメ|食事|ランチ|ディナー|食堂|和食|洋食|中華|イタリアン|フレンチ|パスタ|ピザ|焼肉|肉|寿司|海鮮|魚|居酒屋|ラーメン|そば|うどん|定食|料理|restaurant|food/i.test(text)) {
+      categoryType = 'restaurant';
+    }
+    return {
+      ...item,
+      categoryType: item.categoryType || categoryType,
+    };
+  });
 }
 
 /**
@@ -1592,6 +1651,7 @@ export const INITIAL_TRIPS = [
         id: 'spot-h-3',
         name: 'Bakery & Table 東芦ノ湖',
         category: 'カフェ',
+        categoryType: 'cafe',
         icon: '☕',
         lat: 35.2023,
         lng: 139.0227,
@@ -1658,6 +1718,7 @@ export const INITIAL_TRIPS = [
         id: 'spot-k-3',
         name: '％ ARABICA Kyoto Arashiyama',
         category: 'カフェ',
+        categoryType: 'cafe',
         icon: '☕',
         lat: 35.0135,
         lng: 135.6765,

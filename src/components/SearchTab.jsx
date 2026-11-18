@@ -12,6 +12,7 @@ import {
   fetchNearbySpotsHybrid,
   resolveGoogleMapsSpot,
   isGoogleMapsUrl,
+  getNormalizedCategoryType,
 } from '../api/spotSearchApi';
 import { getGoogleMapsSearchUrl, addMinutesToTimeString } from '../utils';
 
@@ -59,8 +60,9 @@ export default function SearchTab({
   const searchCategoryCounts = useMemo(() => {
     const counts = { all: onlineResults.length, sightseeing: 0, restaurant: 0, cafe: 0 };
     for (const item of onlineResults) {
-      if (item.categoryType === 'restaurant') counts.restaurant++;
-      else if (item.categoryType === 'cafe') counts.cafe++;
+      const cType = getNormalizedCategoryType(item);
+      if (cType === 'restaurant') counts.restaurant++;
+      else if (cType === 'cafe') counts.cafe++;
       else counts.sightseeing++;
     }
     return counts;
@@ -70,14 +72,15 @@ export default function SearchTab({
   const filteredOnlineResults = useMemo(() => {
     if (searchCategoryFilter === 'all') return onlineResults;
     return onlineResults.filter((item) => {
+      const cType = getNormalizedCategoryType(item);
       if (searchCategoryFilter === 'sightseeing') {
-        return item.categoryType === 'sightseeing' || (!item.categoryType && item.sourceType !== 'gourmet');
+        return cType === 'sightseeing';
       }
       if (searchCategoryFilter === 'restaurant') {
-        return item.categoryType === 'restaurant';
+        return cType === 'restaurant';
       }
       if (searchCategoryFilter === 'cafe') {
-        return item.categoryType === 'cafe';
+        return cType === 'cafe';
       }
       return true;
     });
@@ -231,8 +234,9 @@ export default function SearchTab({
   const yorimichiCategoryCounts = useMemo(() => {
     const counts = { all: nearbyYorimichi.length, sightseeing: 0, restaurant: 0, cafe: 0 };
     for (const item of nearbyYorimichi) {
-      if (item.categoryType === 'restaurant') counts.restaurant++;
-      else if (item.categoryType === 'cafe') counts.cafe++;
+      const cType = getNormalizedCategoryType(item);
+      if (cType === 'restaurant') counts.restaurant++;
+      else if (cType === 'cafe') counts.cafe++;
       else counts.sightseeing++;
     }
     return counts;
@@ -243,14 +247,15 @@ export default function SearchTab({
     let list = nearbyYorimichi;
     if (yorimichiCategoryFilter !== 'all') {
       list = nearbyYorimichi.filter((item) => {
+        const cType = getNormalizedCategoryType(item);
         if (yorimichiCategoryFilter === 'sightseeing') {
-          return item.categoryType === 'sightseeing' || (!item.categoryType && item.sourceType !== 'gourmet');
+          return cType === 'sightseeing';
         }
         if (yorimichiCategoryFilter === 'restaurant') {
-          return item.categoryType === 'restaurant';
+          return cType === 'restaurant';
         }
         if (yorimichiCategoryFilter === 'cafe') {
-          return item.categoryType === 'cafe';
+          return cType === 'cafe';
         }
         return true;
       });
