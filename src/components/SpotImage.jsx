@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Icon from './Icon';
 import { detectWatercolorTheme } from '../api/spotSearchApi';
 
@@ -10,19 +10,29 @@ export default function SpotImage({
   desc = '',
   className = '',
   aspectRatio = '16/9',
+  loading = 'lazy',
 }) {
   const theme = detectWatercolorTheme(title || alt, desc);
 
-  const [loadFailed, setLoadFailed] = useState(!src);
+  // HTTPSに正規化（モバイルブラウザの Mixed Content ブロックを回避）
+  const safeSrc = src ? String(src).replace(/^http:\/\//i, 'https://') : '';
+
+  const [loadFailed, setLoadFailed] = useState(!safeSrc);
   const [isLoaded, setIsLoaded] = useState(false);
+  const imgRef = useRef(null);
 
-  // srcが変わったときは状態を最新化してリセット
+  // safeSrcが変わったときは状態を最新化してリセット
   useEffect(() => {
-    setLoadFailed(!src);
+    setLoadFailed(!safeSrc);
     setIsLoaded(false);
-  }, [src, title, desc]);
 
-  const showPhoto = Boolean(src) && !loadFailed;
+    // すでにブラウザキャッシュにある場合は即座に表示
+    if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+      setIsLoaded(true);
+    }
+  }, [safeSrc, title, desc]);
+
+  const showPhoto = Boolean(safeSrc) && !loadFailed;
 
   return (
     <div
@@ -32,11 +42,14 @@ export default function SpotImage({
       {showPhoto ? (
         <>
           <img
-            key={src}
-            src={src}
+            ref={imgRef}
+            key={safeSrc}
+            src={safeSrc}
             alt={alt}
             className={`spot-real-image ${isLoaded ? 'is-visible' : 'is-loading'}`}
-            loading="lazy"
+            loading={loading}
+            decoding="async"
+            referrerPolicy="no-referrer"
             onLoad={() => setIsLoaded(true)}
             onError={() => setLoadFailed(true)}
           />

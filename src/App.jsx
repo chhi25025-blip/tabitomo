@@ -593,7 +593,7 @@ export default function App() {
                     display: 'inline-block',
                   }}
                 >
-                  ver4.0
+                  ver5.0
                 </span>
               </div>
               <span className="brand-app-tagline">

@@ -743,9 +743,15 @@ export default function SearchTab({
                                       </p>
                                       {yori.imageUrl && (
                                         <img
-                                          src={yori.imageUrl}
+                                          src={String(yori.imageUrl).replace(/^http:\/\//i, 'https://')}
                                           alt={yori.name}
                                           className="inline-yori-img"
+                                          loading="lazy"
+                                          decoding="async"
+                                          referrerPolicy="no-referrer"
+                                          onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                          }}
                                         />
                                       )}
                                     </div>

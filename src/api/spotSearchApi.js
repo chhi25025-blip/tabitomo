@@ -275,7 +275,7 @@ export async function searchPhotoFromRakuten(keyword, keys) {
           const hotelInfo = hotels[0]?.hotel?.[0]?.hotelBasicInfo;
           if (hotelInfo && hotelInfo.hotelImageUrl) {
             return {
-              imageUrl: hotelInfo.hotelImageUrl,
+              imageUrl: String(hotelInfo.hotelImageUrl).replace(/^http:\/\//i, 'https://'),
               imageSource: '楽天トラベル',
               hotelName: hotelInfo.hotelName,
             };
@@ -1084,7 +1084,9 @@ function formatHotpepperShop(s, refLat = null, refLng = null) {
     distanceKm: dist,
     hasRealCoord: true,
     tag: s.genre?.catch || genreName,
-    imageUrl: s.photo?.pc?.l || s.photo?.pc?.m || null,
+    imageUrl: (s.photo?.pc?.l || s.photo?.pc?.m || null)
+      ? String(s.photo?.pc?.l || s.photo?.pc?.m).replace(/^http:\/\//i, 'https://')
+      : null,
     imageSource: 'ホットペッパーグルメ',
     wikiUrl: s.urls?.pc || null,
     detailUrl: s.urls?.pc || null,
@@ -2035,6 +2037,213 @@ export async function enrichTripSpotsWithCoordinates(itinerary, areaHint = '') {
   }
 
   return hasChanges ? result : itinerary;
+}
+
+/**
+ * 周辺の宿・ホテル・旅館を安全に検索（既存のグルメ検索とは完全分離）
+ * 1. OpenStreetMap Overpass API (tourism=hotel|guest_house|motel|hostel|chalet)
+ * 2. Wikipedia GeoSearch (ホテル・旅館・温泉などの宿泊施設、写真付き優先)
+ * 3. 楽天トラベルAPI（キーがある場合）
+ * 4. travelData からのフォールバック
+ */
+export async function fetchNearbyHotels(lat, lng, spotTitle = '', limit = 8) {
+  const hotels = [];
+  const seenNames = new Set();
+
+  const addHotel = (h) => {
+    if (!h || !h.name) return;
+    const cleanName = h.name.trim();
+    if (seenNames.has(cleanName)) return;
+    seenNames.add(cleanName);
+    hotels.push(h);
+  };
+
+  // 1. 楽天トラベルAPI（もしキーワードで宿がヒットすれば写真付きで追加）
+  if (spotTitle) {
+    try {
+      const keys = getExternalApiKeys();
+      if (keys.rakutenId) {
+        const rakuten = await searchPhotoFromRakuten(spotTitle, keys);
+        if (rakuten && rakuten.hotelName) {
+          addHotel({
+            id: `rakuten-hotel-${Date.now()}`,
+            name: rakuten.hotelName,
+            title: rakuten.hotelName,
+            category: '宿泊',
+            categoryType: 'hotel',
+            icon: '🏨',
+            lat: lat || 35.6812,
+            lng: lng || 139.7671,
+            distanceKm: 0.5,
+            tag: 'ホテル・旅館',
+            caption: '楽天トラベル掲載の周辺宿',
+            desc: `${rakuten.hotelName}（楽天トラベル提携宿）`,
+            imageUrl: rakuten.imageUrl ? String(rakuten.imageUrl).replace(/^http:\/\//i, 'https://') : null,
+            imageSource: '楽天トラベル',
+            detailUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rakuten.hotelName)}`,
+            defaultStay: 60,
+            sourceType: 'hotel',
+          });
+        }
+      }
+    } catch {}
+  }
+
+  // 2. OpenStreetMap Overpass API による周辺実在ホテルの高速取得（半径約6km）
+  if (lat && lng) {
+    try {
+      const query = `[out:json][timeout:8];(node["tourism"~"^(hotel|guest_house|motel|hostel|chalet)$"]["name"](around:6000,${lat},${lng}););out 15;`;
+      const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const elements = data?.elements || [];
+        for (const el of elements) {
+          const name = el.tags?.name;
+          if (!name) continue;
+          const dist = getDistanceKm(lat, lng, el.lat, el.lon);
+          const tourismType = el.tags?.tourism || 'hotel';
+          const typeLabel =
+            tourismType === 'guest_house'
+              ? 'ゲストハウス・民宿'
+              : tourismType === 'hostel'
+              ? 'ホステル'
+              : /旅館|温泉/i.test(name)
+              ? '旅館・温泉宿'
+              : 'ホテル';
+
+          addHotel({
+            id: `osm-hotel-${el.id}`,
+            name,
+            title: name,
+            category: '宿泊',
+            categoryType: 'hotel',
+            icon: '🏨',
+            lat: el.lat,
+            lng: el.lon,
+            distanceKm: dist,
+            tag: typeLabel,
+            caption: `スポットから約${dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`}`,
+            desc: `${name}（周辺の${typeLabel}）`,
+            imageUrl: null,
+            imageSource: null,
+            detailUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`,
+            defaultStay: 60,
+            sourceType: 'hotel',
+          });
+          if (hotels.length >= limit) break;
+        }
+      }
+    } catch (osmErr) {
+      console.warn('Overpass hotel error:', osmErr);
+    }
+  }
+
+  // 3. Wikipedia GeoSearch による写真付きホテル・旅館・温泉の補完取得（半径約10km）
+  if (lat && lng && hotels.length < limit) {
+    try {
+      const wikiGeoUrl = `https://ja.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=10000&gslimit=20&format=json&origin=*`;
+      const resWiki = await fetch(wikiGeoUrl);
+      if (resWiki.ok) {
+        const dataWiki = await resWiki.json();
+        const pages = dataWiki?.query?.geosearch || [];
+        const hotelPages = pages.filter((p) =>
+          /ホテル|旅館|温泉|リゾート|ペンション|民宿|ステーションホテル|グランドホテル|プリンスホテル|ドーミーイン/i.test(
+            p.title
+          )
+        );
+
+        for (const p of hotelPages) {
+          const dist = getDistanceKm(lat, lng, p.lat, p.lon);
+          // サムネイルと要約を取得
+          let img = null;
+          let extract = '';
+          try {
+            const detailRes = await fetch(
+              `https://ja.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(
+                p.title
+              )}&prop=extracts|pageimages&exintro=1&explaintext=1&piprop=thumbnail&pithumbsize=600&format=json&origin=*`
+            );
+            if (detailRes.ok) {
+              const detailData = await detailRes.json();
+              const pageObj = Object.values(detailData?.query?.pages || {})[0];
+              img = pageObj?.thumbnail?.source || null;
+              extract = pageObj?.extract || '';
+            }
+          } catch {}
+
+          addHotel({
+            id: `wiki-hotel-${p.pageid}`,
+            name: p.title,
+            title: p.title,
+            category: '宿泊',
+            categoryType: 'hotel',
+            icon: '🏨',
+            lat: p.lat,
+            lng: p.lon,
+            distanceKm: dist,
+            tag: /温泉/i.test(p.title) ? '温泉宿・旅館' : 'ホテル',
+            caption: `スポットから約${dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`}`,
+            desc: extract
+              ? extract.length > 120
+                ? extract.slice(0, 120) + '…'
+                : extract
+              : `${p.title}（周辺の宿泊施設）`,
+            imageUrl: img ? String(img).replace(/^http:\/\//i, 'https://') : null,
+            imageSource: img ? 'Wikipedia' : null,
+            detailUrl: `https://ja.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
+            defaultStay: 60,
+            sourceType: 'hotel',
+          });
+          if (hotels.length >= limit) break;
+        }
+      }
+    } catch (wikiErr) {
+      console.warn('Wiki hotel error:', wikiErr);
+    }
+  }
+
+  // 4. travelData (MAIN_SPOTS) からの近隣宿泊・温泉スポット抽出（フォールバック）
+  if (hotels.length === 0 && MAIN_SPOTS && Array.isArray(MAIN_SPOTS)) {
+    const nearbySp = MAIN_SPOTS.filter((s) => {
+      if (!/温泉|宿|ホテル|リゾート/i.test(s.name + (s.tag || '') + (s.desc || ''))) return false;
+      if (!lat || !lng || !s.lat || !s.lng) return true;
+      const d = getDistanceKm(lat, lng, s.lat, s.lng);
+      return d <= 60;
+    }).slice(0, 4);
+
+    for (const s of nearbySp) {
+      const dist = lat && lng && s.lat && s.lng ? getDistanceKm(lat, lng, s.lat, s.lng) : null;
+      addHotel({
+        id: `main-hotel-${s.id}`,
+        name: s.name,
+        title: s.name,
+        category: '宿泊',
+        categoryType: 'hotel',
+        icon: '🏨',
+        lat: s.lat,
+        lng: s.lng,
+        distanceKm: dist,
+        tag: s.tag || 'ホテル・温泉宿',
+        caption: dist ? `スポットから約${dist.toFixed(1)}km` : '人気おすすめ宿・温泉',
+        desc: s.desc || `${s.name}（おすすめの宿泊・温泉スポット）`,
+        imageUrl: s.imageUrl ? String(s.imageUrl).replace(/^http:\/\//i, 'https://') : null,
+        imageSource: s.imageSource || null,
+        detailUrl: s.detailUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
+        defaultStay: 60,
+        sourceType: 'hotel',
+      });
+    }
+  }
+
+  // 写真付きのものを優先しつつ距離順に整列
+  hotels.sort((a, b) => {
+    if (a.imageUrl && !b.imageUrl) return -1;
+    if (!a.imageUrl && b.imageUrl) return 1;
+    return (a.distanceKm || 999) - (b.distanceKm || 999);
+  });
+
+  return hotels.slice(0, limit);
 }
 
 

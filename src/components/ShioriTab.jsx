@@ -24,6 +24,7 @@ import {
   isGoogleMapsUrl,
   searchGourmetFromHotpepper,
   fetchNearbyHotpepperGourmet,
+  fetchNearbyHotels,
   searchPhotoFromRakuten,
   getExternalApiKeys,
   resolveSpotCoordinates,
@@ -462,11 +463,13 @@ export default function ShioriTab({
         }
       }
 
-      // 楽天ホテル写真・宿検索
+      // 周辺の宿・ホテル検索（OpenStreetMap & Wikipedia & 楽天トラベルを安全に統合）
       try {
-        const rakutenResults = await searchPhotoFromRakuten(spot.name || cleanTripDest, getExternalApiKeys());
-        hotels = Array.isArray(rakutenResults) ? rakutenResults.slice(0, 4) : [];
-      } catch {}
+        hotels = await fetchNearbyHotels(spot.lat, spot.lng, spot.name || cleanTripDest, 8);
+      } catch (hotelErr) {
+        console.warn('Failed to fetch nearby hotels:', hotelErr);
+        hotels = [];
+      }
 
       setNearbyCache((prev) => ({
         ...prev,
@@ -1616,7 +1619,17 @@ export default function ShioriTab({
                                           <div key={g.id || g.name} className="nearby-item-card">
                                             <div className="nearby-card-media">
                                               {g.imageUrl || g.photoUrl ? (
-                                                <img src={g.imageUrl || g.photoUrl} alt={g.name} className="nearby-item-img" />
+                                                <img
+                                                  src={String(g.imageUrl || g.photoUrl).replace(/^http:\/\//i, 'https://')}
+                                                  alt={g.name}
+                                                  className="nearby-item-img"
+                                                  loading="lazy"
+                                                  decoding="async"
+                                                  referrerPolicy="no-referrer"
+                                                  onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                  }}
+                                                />
                                               ) : (
                                                 <div className="nearby-img-fallback">{g.icon || '🍴'}</div>
                                               )}
@@ -1668,11 +1681,21 @@ export default function ShioriTab({
                                           <div key={h.id || h.name} className="nearby-item-card">
                                             <div className="nearby-card-media">
                                               {h.imageUrl ? (
-                                                <img src={h.imageUrl} alt={h.name} className="nearby-item-img" />
+                                                <img
+                                                  src={String(h.imageUrl).replace(/^http:\/\//i, 'https://')}
+                                                  alt={h.name}
+                                                  className="nearby-item-img"
+                                                  loading="lazy"
+                                                  decoding="async"
+                                                  referrerPolicy="no-referrer"
+                                                  onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                  }}
+                                                />
                                               ) : (
                                                 <div className="nearby-img-fallback">🏨</div>
                                               )}
-                                              <span className="nearby-genre-badge">宿泊</span>
+                                              <span className="nearby-genre-badge">{h.tag || '宿泊'}</span>
                                             </div>
                                             <div className="nearby-card-info">
                                               <h5 className="nearby-item-name">{h.name}</h5>
@@ -1680,14 +1703,14 @@ export default function ShioriTab({
                                                 <p className="nearby-item-desc">{h.caption}</p>
                                               )}
                                               <div className="nearby-card-bottom-actions">
-                                                {h.url && (
+                                                {(h.detailUrl || h.url) && (
                                                   <a
-                                                    href={h.url}
+                                                    href={h.detailUrl || h.url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="nearby-item-link"
                                                   >
-                                                    楽天トラベル ↗
+                                                    詳細 ↗
                                                   </a>
                                                 )}
                                                 <button
