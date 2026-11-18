@@ -491,7 +491,6 @@ export default function SearchTab({
               <Icon name="sparkle" size={18} />
               <h3>「{keyword}」の検索結果（{onlineResults.length}件）</h3>
             </div>
-            <span className="badge badge-sage">高画質写真・解説付き</span>
           </div>
 
           {/* カテゴリフィルターピル */}
@@ -529,7 +528,7 @@ export default function SearchTab({
           {isSearchingOnline ? (
             <div className="searching-loading-box">
               <div className="botanical-spinner" />
-              <p>日本全国の観光スポット・飲食店・高解像度写真と解説を取得しています…</p>
+              <p>読み込み中…</p>
             </div>
           ) : filteredOnlineResults.length === 0 ? (
             <div className="empty-results-box">
