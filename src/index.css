@@ -566,6 +566,7 @@ select:focus {
 
 .card-search-form {
   gap: 14px;
+  overflow: visible !important; /* サジェスト候補ドロップダウンが枠外に飛び出せるようにする */
 }
 
 .search-input-form-row {
@@ -946,7 +947,7 @@ select:focus {
   flex: 1;
 }
 
-/* 検索結果カードのボタングループ */
+/* 検索結果カードのボタングループ（PCでは「しおりに追加」のみ、スマホでは周辺お店トグルを追加） */
 .result-card-buttons-row {
   display: flex;
   gap: 6px;
@@ -959,9 +960,12 @@ select:focus {
   justify-content: center;
   height: 32px;
   font-size: 0.78rem;
+  width: 100%;
 }
 
+/* PC版では周辺スポットトグルボタン・インライン展開は非表示（従来の2カラム詳細画面でスクロール閲覧） */
 .result-card-buttons-row .btn-toggle-nearby {
+  display: none;
   background: var(--surface-alt, #f7f4ed);
   border: 1px solid var(--border, #e5ddcd);
   color: var(--sage-dark, #405b4b);
@@ -970,7 +974,6 @@ select:focus {
   height: 32px;
   padding: 0 10px;
   border-radius: var(--radius-pill, 999px);
-  display: inline-flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
@@ -989,8 +992,9 @@ select:focus {
   border-color: var(--sage-dark, #405b4b);
 }
 
-/* 直下インライン周辺スポットアコーディオン（プルダウンですぐ開閉可能） */
+/* 直下インライン周辺スポットアコーディオン（PCでは非表示、スマホで直下展開） */
 .inline-yorimichi-dropdown {
+  display: none;
   grid-column: 1 / -1;
   background: var(--surface, #ffffff);
   border: 1.5px solid var(--sage, #789982);
@@ -999,7 +1003,6 @@ select:focus {
   padding: 16px;
   margin: 6px 0 14px 0;
   animation: inlineSlideDown 0.22s ease-out;
-  display: flex;
   flex-direction: column;
   gap: 12px;
 }
@@ -1043,22 +1046,23 @@ select:focus {
   margin-left: 4px;
 }
 
-.btn-inline-close {
+/* 丸型×閉じるボタン（文字なしでスッキリ） */
+.btn-inline-close-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   background: var(--surface-alt, #f7f4ed);
   border: 1px solid var(--border, #e5ddcd);
   color: var(--text-muted, #7a7365);
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill, 999px);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
-.btn-inline-close:hover {
+.btn-inline-close-icon:hover {
   background: var(--terracotta-soft, #faeee9);
   color: var(--terracotta, #c26549);
   border-color: var(--terracotta, #c26549);
@@ -4804,6 +4808,10 @@ input:checked + .toggle-slider::after {
     overflow: hidden !important;
   }
 
+  .card.card-search-form {
+    overflow: visible !important; /* スマホでもサジェスト候補が親枠外にスムーズに飛び出せるようにする */
+  }
+
   .card-header-clean {
     flex-direction: column !important;
     align-items: flex-start !important;
@@ -4828,6 +4836,15 @@ input:checked + .toggle-slider::after {
   /* スマホ版では下部の重複する巨大2カラムプレビューを非表示にし、検索結果直下のインラインアコーディオンで完結！ */
   .spot-detail-grid {
     display: none !important;
+  }
+
+  /* スマホ版では検索カードに「周辺のお店 ▼」ボタンを表示し、直下にインライン展開 */
+  .result-card-buttons-row .btn-toggle-nearby {
+    display: inline-flex !important;
+  }
+
+  .inline-yorimichi-dropdown {
+    display: flex !important;
   }
 
   /* 持ち物タブ切り替えコントロールのスマホ最適化（不自然な文字の泣き別れを防止＆中央揃え統一） */

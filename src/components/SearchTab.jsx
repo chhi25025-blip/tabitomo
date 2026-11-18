@@ -629,14 +629,15 @@ export default function SearchTab({
                           </div>
                           <button
                             type="button"
-                            className="btn-inline-close"
+                            className="btn-inline-close-icon"
                             onClick={(e) => {
                               e.stopPropagation();
                               setExpandedSpotId(null);
                             }}
-                            title="周辺のお店を閉じる"
+                            aria-label="周辺のお店を閉じる"
+                            title="閉じる"
                           >
-                            <Icon name="x" size={14} /> 閉じる
+                            <Icon name="x" size={16} />
                           </button>
                         </div>
 
