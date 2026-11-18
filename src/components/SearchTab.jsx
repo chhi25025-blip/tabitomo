@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, Fragment } from 'react';
 import Icon from './Icon';
 import SpotImage from './SpotImage';
 import {
@@ -44,6 +44,8 @@ export default function SearchTab({
 
   // 選択中スポット（初期状態は常に未選択 null）
   const [selectedSpot, setSelectedSpot] = useState(null);
+  // インライン周辺スポット展開中のスポットID（プルダウンで即開閉可能）
+  const [expandedSpotId, setExpandedSpotId] = useState(null);
   const [addedToast, setAddedToast] = useState(null);
 
   // 初回マウント時に古いキャッシュ（箱根湯本など）を確実にクリーンアップ
@@ -164,6 +166,7 @@ export default function SearchTab({
       // 2. 通常のキーワード検索
       const results = await searchSpotFromWikipedia(q);
       setOnlineResults(results);
+      setExpandedSpotId(null);
       if (results.length > 0) {
         // 先頭を自動選択
         setSelectedSpot(results[0]);
@@ -539,50 +542,234 @@ export default function SearchTab({
                 const isRestaurant = item.categoryType === 'restaurant';
                 const catBadgeClass = isCafe ? 'badge-cafe' : isRestaurant ? 'badge-restaurant' : 'badge-sightseeing';
                 const catBadgeLabel = isCafe ? '☕ カフェ' : isRestaurant ? '🍴 グルメ' : '🏛️ 観光地';
+                const isSelected = selectedSpot?.id === item.id;
+                const isExpanded = expandedSpotId === item.id;
 
                 return (
-                  <div
-                    key={item.id}
-                    className={`result-mini-card ${selectedSpot?.id === item.id ? 'is-selected' : ''}`}
-                    onClick={() => setSelectedSpot(item)}
-                  >
-                    <SpotImage
-                      src={item.imageUrl}
-                      alt={item.title}
-                      source={item.imageSource}
-                      title={item.title}
-                      desc={item.extract}
-                      aspectRatio="16/10"
-                      className="result-card-img"
-                    />
-                    <div className="result-card-body">
-                      <div className="result-card-title-row">
-                        <div className="result-card-badges-flex">
-                          <span className={`cat-mini-badge ${catBadgeClass}`}>
-                            {catBadgeLabel}
-                          </span>
-                          {item.region && (
-                            <span className="result-card-region-badge">
-                              📍 {item.region}
+                  <Fragment key={item.id}>
+                    <div
+                      className={`result-mini-card ${isSelected ? 'is-selected' : ''}`}
+                      onClick={() => {
+                        setSelectedSpot(item);
+                        setExpandedSpotId(isExpanded ? null : item.id);
+                      }}
+                    >
+                      <SpotImage
+                        src={item.imageUrl}
+                        alt={item.title}
+                        source={item.imageSource}
+                        title={item.title}
+                        desc={item.extract}
+                        aspectRatio="16/10"
+                        className="result-card-img"
+                      />
+                      <div className="result-card-body">
+                        <div className="result-card-title-row">
+                          <div className="result-card-badges-flex">
+                            <span className={`cat-mini-badge ${catBadgeClass}`}>
+                              {catBadgeLabel}
                             </span>
-                          )}
+                            {item.region && (
+                              <span className="result-card-region-badge">
+                                📍 {item.region}
+                              </span>
+                            )}
+                          </div>
+                          <strong className="result-card-title">{item.title}</strong>
                         </div>
-                        <strong className="result-card-title">{item.title}</strong>
+                        <p className="result-card-desc">{item.extract}</p>
+                        <div className="result-card-buttons-row">
+                          <button
+                            type="button"
+                            className="btn btn-sage-soft btn-xs btn-add-main"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedSpot(item);
+                              handleAddSpot(item, false);
+                            }}
+                          >
+                            <Icon name="plus" size={13} /> {stayDays > 1 ? `${targetDay}日目に追加` : 'しおりに追加'}
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn btn-xs btn-toggle-nearby ${isExpanded ? 'is-open' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedSpot(item);
+                              setExpandedSpotId(isExpanded ? null : item.id);
+                            }}
+                            title={isExpanded ? '周辺のお店を閉じる' : '周辺のお店を展開'}
+                          >
+                            {isExpanded ? (
+                              <>
+                                <Icon name="chevron-up" size={13} /> 閉じる
+                              </>
+                            ) : (
+                              <>
+                                <Icon name="coffee" size={13} /> 周辺のお店 ▼
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <p className="result-card-desc">{item.extract}</p>
-                      <button
-                        type="button"
-                        className="btn btn-sage-soft btn-xs btn-block"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedSpot(item);
-                          handleAddSpot(item, false);
-                        }}
-                      >
-                        <Icon name="plus" size={13} /> {stayDays > 1 ? `${targetDay}日目に追加` : 'しおりに追加'}
-                      </button>
                     </div>
-                  </div>
+
+                    {/* 直下インライン周辺スポットアコーディオン（プルダウンですぐ開閉可能） */}
+                    {isExpanded && (
+                      <div className="inline-yorimichi-dropdown">
+                        <div className="inline-yorimichi-header">
+                          <div className="inline-yorimichi-title">
+                            <span className="inline-yori-header-icon">☕🍽️</span>
+                            <div>
+                              <strong>「{item.title}」周辺の観光＆グルメ</strong>
+                              <span className="inline-yori-count">
+                                （{filteredYorimichi.length}件）
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-inline-close"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedSpotId(null);
+                            }}
+                            title="周辺のお店を閉じる"
+                          >
+                            <Icon name="x" size={14} /> 閉じる
+                          </button>
+                        </div>
+
+                        {/* 周辺フィルタピル */}
+                        <div className="filter-pill-bar inline-filter-bar">
+                          <button
+                            type="button"
+                            className={`filter-pill-btn ${yorimichiCategoryFilter === 'all' ? 'is-active' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setYorimichiCategoryFilter('all');
+                            }}
+                          >
+                            すべて ({Math.min(yorimichiCategoryCounts.all, 12)})
+                          </button>
+                          <button
+                            type="button"
+                            className={`filter-pill-btn ${yorimichiCategoryFilter === 'sightseeing' ? 'is-active' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setYorimichiCategoryFilter('sightseeing');
+                            }}
+                          >
+                            🏛️ 観光地 ({Math.min(yorimichiCategoryCounts.sightseeing, 12)})
+                          </button>
+                          <button
+                            type="button"
+                            className={`filter-pill-btn ${yorimichiCategoryFilter === 'restaurant' ? 'is-active' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setYorimichiCategoryFilter('restaurant');
+                            }}
+                          >
+                            🍴 レストラン ({Math.min(yorimichiCategoryCounts.restaurant, 12)})
+                          </button>
+                          <button
+                            type="button"
+                            className={`filter-pill-btn ${yorimichiCategoryFilter === 'cafe' ? 'is-active' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setYorimichiCategoryFilter('cafe');
+                            }}
+                          >
+                            ☕ カフェ ({Math.min(yorimichiCategoryCounts.cafe, 12)})
+                          </button>
+                        </div>
+
+                        {isYorimichiLoading && nearbyYorimichi.length === 0 ? (
+                          <div className="inline-yorimichi-loading">
+                            <div className="botanical-spinner" style={{ width: 20, height: 20 }} />
+                            <p>周辺のグルメ・名所を検索中…</p>
+                          </div>
+                        ) : filteredYorimichi.length === 0 ? (
+                          <div className="inline-yorimichi-empty">
+                            <p>このカテゴリの周辺スポットは見つかりませんでした。「すべて」をお試しください。</p>
+                          </div>
+                        ) : (
+                          <div className="inline-yorimichi-items-list">
+                            {filteredYorimichi.map((yori) => {
+                              const isYoriExpanded = expandedYorimichiId === yori.id;
+                              return (
+                                <div
+                                  key={yori.id}
+                                  className={`inline-yori-item-row ${isYoriExpanded ? 'is-expanded' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedYorimichiId(isYoriExpanded ? null : yori.id);
+                                  }}
+                                >
+                                  <div className="inline-yori-main-line">
+                                    <span className="inline-yori-icon">{yori.icon}</span>
+                                    <div className="inline-yori-info">
+                                      <span className="inline-yori-name">{yori.name}</span>
+                                      <div className="inline-yori-sub">
+                                        <span className="inline-yori-cat">
+                                          {yori.tag || yori.category}
+                                        </span>
+                                        {typeof yori.distanceKm === 'number' && (
+                                          <span className="inline-yori-dist">
+                                            約{yori.distanceKm < 1
+                                              ? `${Math.round(yori.distanceKm * 1000)}m`
+                                              : `${yori.distanceKm.toFixed(1)}km`}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sage-soft btn-xs inline-yori-add-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddSpot(yori, true);
+                                      }}
+                                    >
+                                      <Icon name="plus" size={12} /> 追加
+                                    </button>
+                                  </div>
+
+                                  {isYoriExpanded && (
+                                    <div className="inline-yori-detail">
+                                      <p className="inline-yori-desc">
+                                        {yori.desc || yori.extract}
+                                      </p>
+                                      {yori.imageUrl && (
+                                        <img
+                                          src={yori.imageUrl}
+                                          alt={yori.name}
+                                          className="inline-yori-img"
+                                        />
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        <div className="inline-yorimichi-footer">
+                          <button
+                            type="button"
+                            className="btn-inline-close-bottom"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedSpotId(null);
+                            }}
+                          >
+                            <Icon name="chevron-up" size={14} /> 周辺のお店を閉じる
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </Fragment>
                 );
               })}
             </div>
