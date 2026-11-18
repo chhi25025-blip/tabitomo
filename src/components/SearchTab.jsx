@@ -13,6 +13,7 @@ import {
   resolveGoogleMapsSpot,
   isGoogleMapsUrl,
   getNormalizedCategoryType,
+  formatCategoryLabel,
 } from '../api/spotSearchApi';
 import { getGoogleMapsSearchUrl, addMinutesToTimeString } from '../utils';
 
@@ -280,6 +281,7 @@ export default function SearchTab({
       cat = spotData.category || (isYorimichi ? '観光名所' : '観光スポット');
       icon = spotData.icon || '🏛️';
     }
+    cat = formatCategoryLabel(cat);
 
     const chosenDay = Number(targetDay) || 1;
 
@@ -459,7 +461,7 @@ export default function SearchTab({
                       )}
                     </div>
                     {item.category && (
-                      <span className="suggestion-category-tag">{item.category}</span>
+                      <span className="suggestion-category-tag">{formatCategoryLabel(item.category)}</span>
                     )}
                   </li>
                 ))}
@@ -712,7 +714,7 @@ export default function SearchTab({
                                       <span className="inline-yori-name">{yori.name}</span>
                                       <div className="inline-yori-sub">
                                         <span className="inline-yori-cat">
-                                          {yori.tag || yori.category}
+                                          {formatCategoryLabel(yori.tag || yori.category)}
                                         </span>
                                         {typeof yori.distanceKm === 'number' && (
                                           <span className="inline-yori-dist">
@@ -959,7 +961,7 @@ export default function SearchTab({
                             ) : null}
                           </div>
                           <span className="yorimichi-cat-tag">
-                            {yori.category} {yori.tag ? `・ ${yori.tag}` : ''}
+                            {formatCategoryLabel(yori.category)} {yori.tag && yori.tag !== yori.category ? `・ ${formatCategoryLabel(yori.tag)}` : ''}
                           </span>
                         </div>
                         <span className="yorimichi-expand-toggle" aria-label={isExpanded ? '詳細を閉じる' : '詳細を見る'}>

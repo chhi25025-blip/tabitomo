@@ -23,17 +23,21 @@ const KNOWN_ITEM_HINTS = {
   スマホ充電器: { priority: 'must', category: 'gadget', reason: '充電切れ防止' },
   スマートフォン充電器: { priority: 'must', category: 'gadget', reason: '充電切れ防止' },
   モバイルバッテリー: { priority: 'must', category: 'gadget', reason: '外出先でのバッテリー確保' },
+  鍵: { priority: 'must', category: 'daily', reason: '自宅やロッカーの施錠' },
   常備薬: { priority: 'must', category: 'daily', reason: '胃腸薬・頭痛薬・絆創膏など' },
   着替え: { priority: 'must', category: 'wear', reason: '宿泊用・予備の衣類' },
   下着: { priority: 'must', category: 'wear', reason: '宿泊日数分の替え' },
 
   // 便利級
+  傘: { priority: 'nice', category: 'rain', reason: '急な雨天への備え' },
   折りたたみ傘: { priority: 'nice', category: 'rain', reason: '急な雨や山の天候変化に' },
   雨具: { priority: 'nice', category: 'rain', reason: '悪天候対策' },
   レインコート: { priority: 'nice', category: 'rain', reason: '雨天時の両手フリー散策' },
   日焼け止め: { priority: 'nice', category: 'daily', reason: '紫外線対策' },
   サングラス: { priority: 'nice', category: 'daily', reason: 'ドライブや観光の眩しさ対策' },
+  靴: { priority: 'nice', category: 'wear', reason: '歩きやすい履き物' },
   スニーカー: { priority: 'nice', category: 'wear', reason: '歩きやすい靴' },
+  本: { priority: 'nice', category: 'daily', reason: '移動中の読書・ガイド' },
   羽織もの: { priority: 'nice', category: 'wear', reason: '朝晩の冷え込み・空調対策' },
   カーディガン: { priority: 'nice', category: 'wear', reason: '朝晩の冷え込み対策' },
   防寒着: { priority: 'must', category: 'wear', reason: '高地や夜間の冷え込み対策' },
@@ -438,7 +442,7 @@ export function parseAiPlanText(text) {
         .replace(/[*_]/g, '')
         .trim();
 
-      if (cleanItemLine && cleanItemLine.length >= 2 && !cleanItemLine.startsWith('#')) {
+      if (cleanItemLine && cleanItemLine.length >= 1 && !cleanItemLine.startsWith('#')) {
         // 「アイテム名（必須）」や「アイテム名：理由」の解析
         let itemName = cleanItemLine;
         let itemReason = '';
@@ -461,7 +465,7 @@ export function parseAiPlanText(text) {
         }
 
         // アイテム名が短すぎる、または見出しっぽい場合はスキップ
-        if (itemName.length >= 2 && itemName.length <= 30 && !itemName.includes('持ち物')) {
+        if (itemName.length >= 1 && itemName.length <= 30 && !itemName.includes('持ち物')) {
           const props = guessPackingItemProps(itemName, explicitPriority);
           // 既に同じ名前で追加されていないか確認
           if (!packingList.some((p) => p.name.toLowerCase() === itemName.toLowerCase())) {

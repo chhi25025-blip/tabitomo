@@ -98,6 +98,79 @@ function fetchJsonp(url, timeoutMs = 6000) {
   });
 }
 
+export const OSM_CATEGORY_TRANSLATIONS = {
+  place_of_worship: '寺社・仏閣',
+  attraction: '観光名所',
+  viewpoint: '展望スポット',
+  monument: '記念碑・名所',
+  memorial: '記念館・慰霊碑',
+  museum: '博物館・美術館',
+  artwork: 'アート・彫刻',
+  gallery: 'ギャラリー',
+  castle: '城・城跡',
+  ruins: '遺跡・史跡',
+  historic: '歴史・史跡',
+  theme_park: 'テーマパーク',
+  zoo: '動物園',
+  aquarium: '水族館',
+  park: '公園・自然',
+  natural: '自然景観',
+  peak: '山頂・展望',
+  waterfall: '滝・渓谷',
+  spring: '湧水・名水',
+  beach: 'ビーチ・海岸',
+  information: '観光案内所',
+  hotel: 'ホテル・宿泊',
+  motel: 'モーテル',
+  hostel: 'ゲストハウス',
+  guest_house: '民宿・旅館',
+  camp_site: 'キャンプ場',
+  caravan_site: 'オートキャンプ場',
+  chalet: '山小屋・ロッジ',
+  restaurant: 'レストラン・食事',
+  cafe: 'カフェ・喫茶',
+  fast_food: 'ファストフード',
+  food_court: 'フードコート',
+  bar: 'バー・酒場',
+  pub: 'パブ',
+  bakery: 'ベーカリー・パン',
+  shop: 'お土産・ショップ',
+  mall: 'ショッピングモール',
+  supermarket: 'スーパー',
+  convenience: 'コンビニ',
+  station: '駅・交通',
+  subway_entrance: '地下鉄駅',
+  bus_stop: 'バス停',
+  ferry_terminal: 'フェリーターミナル',
+  parking: '駐車場',
+  rest_area: '道の駅・パーキングエリア',
+  spa: '温泉・スパ',
+  sports_centre: 'スポーツ施設',
+  theatre: '劇場・ホール',
+  cinema: '映画館',
+  library: '図書館',
+  townhall: '役場・公共施設',
+};
+
+export function formatCategoryLabel(rawCat) {
+  if (!rawCat || typeof rawCat !== 'string') return '観光スポット';
+  const clean = rawCat.trim();
+  const lower = clean.toLowerCase();
+  if (OSM_CATEGORY_TRANSLATIONS[lower]) {
+    return OSM_CATEGORY_TRANSLATIONS[lower];
+  }
+  if (/^[a-z0-9_]+$/i.test(clean)) {
+    if (clean.includes('worship') || clean.includes('temple') || clean.includes('shrine')) return '寺社・仏閣';
+    if (clean.includes('park') || clean.includes('garden')) return '公園・自然';
+    if (clean.includes('view') || clean.includes('peak')) return '展望スポット';
+    if (clean.includes('water') || clean.includes('lake') || clean.includes('river')) return '湖・水辺';
+    if (clean.includes('food') || clean.includes('eat') || clean.includes('meal')) return 'グルメ・食事';
+    if (clean.includes('shop') || clean.includes('market')) return 'お土産・店舗';
+    return '観光スポット';
+  }
+  return clean;
+}
+
 /**
  * スポットオブジェクトから「cafe」「restaurant」「sightseeing」の正規化カテゴリ種別を判定
  * 表記揺れや欠落を完全に吸収し、カフェ・レストランの0件バグを防止する
@@ -567,7 +640,7 @@ export async function searchSpotHybrid(query) {
     // OSMアイテムのカテゴリ分類（カフェ・レストラン・観光地を正しく振り分ける）
     const osmTypeLower = `${item.type || ''} ${item.class || ''} ${name}`.toLowerCase();
     let osmCategoryType = 'sightseeing';
-    let osmCategoryLabel = item.type || item.class || '観光スポット';
+    let osmCategoryLabel = formatCategoryLabel(item.type || item.class);
     if (/cafe|coffee|bakery|tea|カフェ|喫茶|珈琲|ベーカリー|スイーツ|パン/i.test(osmTypeLower)) {
       osmCategoryType = 'cafe';
       osmCategoryLabel = 'カフェ・スイーツ';

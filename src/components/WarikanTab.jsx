@@ -28,6 +28,7 @@ export default function WarikanTab({
   const [participantIds, setParticipantIds] = useState(() => members.map((m) => m.id));
   const [formError, setFormError] = useState('');
   const [copiedWarikanUrl, setCopiedWarikanUrl] = useState(false);
+  const [isMembersOpen, setIsMembersOpen] = useState(false); // スマホ用メンバー管理開閉ステート
 
   // わりかん帳の作成・名前変更・削除・リセット用ステート
   const [showCreateBookModal, setShowCreateBookModal] = useState(false);
@@ -299,60 +300,83 @@ export default function WarikanTab({
         )}
       </section>
 
-      {/* メンバー登録バー */}
-      <section className="card card-members">
-        <div className="card-header-clean">
+      {/* メンバー登録バー（スマホでは折りたたみアコーディオン対応） */}
+      <section className={`card card-members ${isMembersOpen ? 'is-open' : ''}`}>
+        <div
+          className="card-header-clean members-accordion-header"
+          onClick={() => setIsMembersOpen((prev) => !prev)}
+        >
           <div className="header-icon-title">
             <Icon name="users" size={18} />
-            <h3>メンバー（{members.length}人）</h3>
-          </div>
-        </div>
-
-        <div className="members-chips-wrap">
-          {members.map((m, idx) => (
-            <div key={m.id} className="member-avatar-chip">
-              <span
-                className="member-avatar-circle"
-                style={{ background: AVATAR_COLORS[idx % AVATAR_COLORS.length] }}
-              >
-                {m.name.slice(0, 1)}
+            <div className="members-title-group">
+              <h3>メンバー（{members.length}人）</h3>
+              <span className="members-names-summary">
+                {members.map((m) => m.name).join('・')}
               </span>
-              <span className="member-name-label">{m.name}</span>
-              {members.length > 2 && (
-                <button
-                  type="button"
-                  className="chip-remove-btn"
-                  onClick={() => onRemoveMember(m.id)}
-                  disabled={isMemberInvolved(m.id)}
-                  title={
-                    isMemberInvolved(m.id)
-                      ? '支出記録に含まれているため削除できません'
-                      : '削除'
-                  }
-                  aria-label={`${m.name}を削除`}
-                >
-                  <Icon name="x" size={12} />
-                </button>
-              )}
             </div>
-          ))}
+          </div>
+
+          <button
+            type="button"
+            className={`members-circle-toggle-btn ${isMembersOpen ? 'is-open' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMembersOpen((prev) => !prev);
+            }}
+            aria-label={isMembersOpen ? 'メンバー欄を閉じる' : 'メンバー欄を開く'}
+            aria-expanded={isMembersOpen}
+          >
+            <Icon name="chevronDown" size={16} />
+          </button>
         </div>
 
-        <form onSubmit={handleAddMember} className="add-member-form">
-          <input
-            type="text"
-            value={newMemberName}
-            onChange={(e) => {
-              setNewMemberName(e.target.value);
-              setFormError('');
-            }}
-            placeholder="新しいメンバーの名前（例: たろう）"
-            className="input-clean"
-          />
-          <button type="submit" className="btn btn-sage-soft btn-sm">
-            <Icon name="plus" size={14} /> メンバー追加
-          </button>
-        </form>
+        <div className="members-collapsible-content">
+          <div className="members-chips-wrap">
+            {members.map((m, idx) => (
+              <div key={m.id} className="member-avatar-chip">
+                <span
+                  className="member-avatar-circle"
+                  style={{ background: AVATAR_COLORS[idx % AVATAR_COLORS.length] }}
+                >
+                  {m.name.slice(0, 1)}
+                </span>
+                <span className="member-name-label">{m.name}</span>
+                {members.length > 2 && (
+                  <button
+                    type="button"
+                    className="chip-remove-btn"
+                    onClick={() => onRemoveMember(m.id)}
+                    disabled={isMemberInvolved(m.id)}
+                    title={
+                      isMemberInvolved(m.id)
+                        ? '支出記録に含まれているため削除できません'
+                        : '削除'
+                    }
+                    aria-label={`${m.name}を削除`}
+                  >
+                    <Icon name="x" size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <form onSubmit={handleAddMember} className="add-member-form">
+            <input
+              type="text"
+              value={newMemberName}
+              onChange={(e) => {
+                setNewMemberName(e.target.value);
+                setFormError('');
+              }}
+              placeholder="新しいメンバーの名前（例: たろう）"
+              className="input-clean"
+            />
+            <button type="submit" className="btn btn-sage-soft btn-sm">
+              <Icon name="plus" size={14} /> メンバー追加
+            </button>
+          </form>
+        </div>
       </section>
 
       {/* 立て替えの記録フォーム ＆ 支出履歴 */}
@@ -511,7 +535,11 @@ export default function WarikanTab({
                       <button
                         type="button"
                         className="icon-btn danger sm"
-                        onClick={() => onDeleteExpense(exp.id)}
+                        onClick={() => {
+                          if (window.confirm(`「${exp.title}」（${yen(exp.amount)}）の支出記録を削除しますか？`)) {
+                            onDeleteExpense(exp.id);
+                          }
+                        }}
                         title="削除"
                         aria-label="削除"
                       >

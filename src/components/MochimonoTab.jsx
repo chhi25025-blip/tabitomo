@@ -30,6 +30,7 @@ export default function MochimonoTab({
 
   // お天気表示で選択中の日程（'all' または 1, 2, 3...）
   const [selectedWeatherDay, setSelectedWeatherDay] = useState('all');
+  const [isWeatherOpen, setIsWeatherOpen] = useState(false); // 初期は閉じてスッキリ表示、任意で開いて天気確認可能
 
   // マイアイテム追加フォームステート
   const [newItemName, setNewItemName] = useState('');
@@ -232,11 +233,11 @@ export default function MochimonoTab({
 
           {/* ① 旅の気候・天候・推奨バッグ診断カード（画像背景＆すりガラス） */}
           <section
-            className="card card-weather-hero"
+            className={`card card-weather-hero ${isWeatherOpen ? 'is-open' : 'is-collapsed'}`}
             style={{ backgroundImage: `url(${diag.photoUrl})` }}
           >
             <div className="weather-hero-overlay">
-              <div className="weather-hero-head">
+              <div className="weather-hero-top-bar">
                 <div className="hero-dest-badge">
                   <span className="hero-season-badge">
                     {diag.seasonIcon} {diag.seasonLabel}
@@ -248,6 +249,24 @@ export default function MochimonoTab({
                     {selectedTrip.date} 出発
                   </span>
                 </div>
+
+                <button
+                  type="button"
+                  className={`weather-toggle-action-btn ${isWeatherOpen ? 'is-open' : ''}`}
+                  onClick={() => setIsWeatherOpen((prev) => !prev)}
+                  aria-label={isWeatherOpen ? '天気・気候情報を閉じる' : '天気・気候情報を開く'}
+                  aria-expanded={isWeatherOpen}
+                >
+                  <span className="weather-toggle-text">
+                    {isWeatherOpen ? '閉じる' : '詳細を確認'}
+                  </span>
+                  <span className="weather-circle-icon">
+                    <Icon name="chevronDown" size={14} />
+                  </span>
+                </button>
+              </div>
+
+              <div className="weather-hero-main-title-block">
                 <h2 className="weather-hero-title">
                   {selectedTrip.title}
                 </h2>
@@ -261,7 +280,9 @@ export default function MochimonoTab({
                 </p>
               </div>
 
-              {/* 日程別・滞在エリアの天気予報チップバー */}
+              {isWeatherOpen && (
+                <div className="weather-collapsible-content">
+                  {/* 日程別・滞在エリアの天気予報チップバー */}
               {diag.dailyForecasts && diag.dailyForecasts.length > 0 && (
                 <div className="daily-forecasts-strip">
                   <div className="forecasts-strip-header">
@@ -394,7 +415,9 @@ export default function MochimonoTab({
                 </div>
               </div>
             </div>
-          </section>
+          )}
+        </div>
+      </section>
 
           {/* ② パッキング進捗 ＆ 不足サマリー */}
           <section className="card card-packing-summary">
