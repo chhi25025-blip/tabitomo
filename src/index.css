@@ -6127,7 +6127,7 @@ input:checked + .toggle-slider::after {
   white-space: nowrap;
 }
 
-/* AIモーダル専用バックドロップ（iOS Safariの背景スクロール完全防止） */
+/* AIモーダル専用バックドロップ（iOS Safariのスクロール完全対応） */
 .ai-modal-backdrop {
   position: fixed !important;
   inset: 0 !important;
@@ -6146,8 +6146,6 @@ input:checked + .toggle-slider::after {
   justify-content: center !important;
   padding: 16px !important;
   overflow: hidden !important;
-  touch-action: none !important;
-  overscroll-behavior: none !important;
   box-sizing: border-box !important;
 }
 
@@ -6155,9 +6153,9 @@ input:checked + .toggle-slider::after {
 .ai-import-modal-window {
   max-width: 680px !important;
   width: 95vw !important;
-  height: 84vh !important;
-  height: 84dvh !important;
-  max-height: 84dvh !important;
+  height: 85vh !important;
+  height: 85dvh !important;
+  max-height: 85dvh !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -6167,13 +6165,14 @@ input:checked + .toggle-slider::after {
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28) !important;
   border: 1px solid var(--border) !important;
   box-sizing: border-box !important;
+  position: relative !important;
 }
 
 .ai-import-modal-window .guide-modal-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: #ffffff;
-  flex-shrink: 0;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  background: #ffffff !important;
+  flex: 0 0 auto !important;
 }
 
 .ai-robot-icon {
@@ -6181,29 +6180,37 @@ input:checked + .toggle-slider::after {
   color: var(--sage) !important;
 }
 
+/* スクロールコンテナ：WebKit/Safariで確実にスクロールさせるブロックレイアウト */
 .ai-import-body {
-  padding: 18px 20px;
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
-  overflow-y: scroll !important;
+  padding: 16px !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior: contain !important;
   touch-action: pan-y !important;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  box-sizing: border-box;
+  overscroll-behavior-y: contain !important;
+  box-sizing: border-box !important;
+}
+
+.ai-import-body .ai-step-card {
+  margin-bottom: 16px !important;
+  display: block !important;
+}
+
+.ai-import-body .ai-step-card:last-child {
+  margin-bottom: 0 !important;
 }
 
 .ai-modal-footer {
-  padding: 14px 20px;
-  border-top: 1px solid var(--border-subtle);
-  background: #fbfbf9;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-shrink: 0;
+  padding: 12px 18px !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  background: #fbfbf9 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  flex: 0 0 auto !important;
 }
 
 /* 各ステップカード */
@@ -6256,15 +6263,16 @@ input:checked + .toggle-slider::after {
   line-height: 1.5;
 }
 
-/* プロンプトプレビュー枠 */
+/* プロンプトプレビュー枠（入れ子スクロール防止のためoverflow: hidden） */
 .ai-prompt-preview-wrap {
   background: #f8faf8;
   border: 1px solid #e2ece3;
   border-radius: 8px;
-  padding: 10px 14px;
-  max-height: 120px;
-  overflow-y: auto;
-  margin-bottom: 12px;
+  padding: 8px 12px;
+  max-height: 56px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  user-select: none;
 }
 
 .ai-prompt-preview-text {
@@ -6605,22 +6613,44 @@ input:checked + .toggle-slider::after {
 
   .ai-import-modal-window {
     width: 96vw !important;
-    height: 82vh !important;
-    height: 82dvh !important;
-    max-height: 82dvh !important;
+    height: 85vh !important;
+    height: 85dvh !important;
+    max-height: 85dvh !important;
     border-radius: 16px !important;
   }
 
   .ai-import-body {
-    padding: 14px 12px !important;
-    gap: 14px !important;
+    padding: 12px 10px !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    height: 100% !important;
-    overflow-y: scroll !important;
+    display: block !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: contain !important;
     touch-action: pan-y !important;
+    overscroll-behavior-y: contain !important;
+  }
+
+  .ai-import-body .ai-step-card {
+    margin-bottom: 12px !important;
+    padding: 12px !important;
+  }
+
+  .ai-prompt-preview-wrap {
+    max-height: 48px !important;
+    padding: 6px 10px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .ai-import-modal-window .ai-form-row {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+  }
+
+  .ai-import-modal-window .ai-form-row .ai-form-group.flex-1 {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
   }
 
   .preview-packing-grid {

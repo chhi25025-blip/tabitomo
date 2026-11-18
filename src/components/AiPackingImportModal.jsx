@@ -184,11 +184,6 @@ export default function AiPackingImportModal({
     <div
       className="modal-backdrop ai-modal-backdrop"
       onClick={onClose}
-      onTouchMove={(e) => {
-        if (e.target === e.currentTarget) {
-          e.preventDefault();
-        }
-      }}
       role="dialog"
       aria-modal="true"
     >
@@ -217,10 +212,7 @@ export default function AiPackingImportModal({
         </div>
 
         {/* モーダル本文 */}
-        <div
-          className="guide-modal-body ai-import-body"
-          onTouchMove={(e) => e.stopPropagation()}
-        >
+        <div className="guide-modal-body ai-import-body">
           {/* Step 1: プロンプトコピー */}
           <section className="ai-step-card">
             <div className="ai-step-head">
