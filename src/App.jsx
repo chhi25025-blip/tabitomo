@@ -576,7 +576,26 @@ export default function App() {
               <Icon name="leaf" size={20} strokeWidth={2.4} />
             </span>
             <div className="brand-text-group">
-              <h1 className="brand-app-name">タビトモ</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h1 className="brand-app-name">タビトモ</h1>
+                <span
+                  className="app-version-badge"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '999px',
+                    background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+                    color: '#2e7d32',
+                    border: '1px solid #a5d6a7',
+                    lineHeight: 1.2,
+                    letterSpacing: '0.04em',
+                    display: 'inline-block',
+                  }}
+                >
+                  ver1.0
+                </span>
+              </div>
               <span className="brand-app-tagline">
                 旅のしおり・もちもの・わりかん
               </span>
